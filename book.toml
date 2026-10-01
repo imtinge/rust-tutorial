@@ -1,0 +1,29 @@
+[book]
+title = "Rust 从入门到上手实战"
+authors = ["星辰超级智能体（TeleAgent）"]
+description = "面向零基础自学者的 Rust 教程——风趣幽默，由浅入深，代码先行"
+language = "zh"
+src = "src"
+
+[rust]
+edition = "2021"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "ayu"
+additional-css = ["theme/style.css"]
+additional-js = ["progress.js"]
+git-repository-url = ""
+edit-url-template = ""
+
+[output.html.playground]
+editable = false
+copy-js = true
+
+[output.html.search]
+enable = true
+use-boolean-and = true
+
+[output.html.fold]
+enable = true
+level = 0

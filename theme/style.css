@@ -1,0 +1,243 @@
+/* ===== Rust 从入门到上手实战 · 自定义样式 ===== */
+
+/* 全局字体优化 */
+body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* 代码块样式 */
+pre code {
+    font-family: "JetBrains Mono", "Fira Code", "Consolas", "Courier New", monospace;
+}
+
+/* 学习目标卡片 */
+blockquote.learning-objectives {
+    background: #e8f5e9;
+    border-left: 4px solid #4caf50;
+    padding: 10px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+}
+
+/* 新手坑警告 */
+blockquote.pitfall {
+    background: #fff3e0;
+    border-left: 4px solid #ff9800;
+    padding: 10px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+}
+
+/* 报错解决思路 */
+blockquote.compiler-error {
+    background: #ffebee;
+    border-left: 4px solid #f44336;
+    padding: 10px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+}
+
+/* 技巧提示 */
+blockquote.tip {
+    background: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    padding: 10px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+}
+
+/* 术语解释 */
+blockquote.term {
+    background: #f3e5f5;
+    border-left: 4px solid #9c27b0;
+    padding: 10px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+}
+
+/* 练习题区域 */
+blockquote.exercise {
+    background: #e0f7fa;
+    border-left: 4px solid #00bcd4;
+    padding: 10px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+}
+
+/* 答案要点（折叠） */
+details summary {
+    cursor: pointer;
+    font-weight: bold;
+    color: #00796b;
+}
+
+/* 表格美化 */
+table {
+    margin: 16px 0;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table th, table td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+table tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
+/* 自定义图标提示 */
+.icon-tip::before { content: "💡 技巧"; font-weight: bold; color: #2196f3; }
+.icon-pitfall::before { content: "⚠️ 新手坑"; font-weight: bold; color: #ff9800; }
+.icon-error::before { content: "🔧 报错解法"; font-weight: bold; color: #f44336; }
+.icon-term::before { content: "📖 术语解释"; font-weight: bold; color: #9c27b0; }
+
+/* ===== 学习进度追踪（数据保存在本地 localStorage，不上传） ===== */
+
+#rust-progress-badge {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 10px 16px;
+    font-size: 12px;
+    line-height: 1.4;
+    background: var(--theme-hover, rgba(127, 127, 127, 0.1));
+    border-bottom: 1px solid var(--theme-hover, rgba(127, 127, 127, 0.2));
+    user-select: none;
+}
+
+#rust-progress-badge .rp-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--fg, inherit);
+    margin-bottom: 6px;
+}
+
+#rust-progress-badge .rp-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--theme-hover, #ddd);
+    overflow: hidden;
+}
+
+#rust-progress-badge .rp-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--search-mark-bg, #ce422b);
+    transition: width 0.35s ease;
+}
+
+#rust-progress-badge.all-done .rp-fill {
+    background: #2c8a2c;
+}
+
+/* 侧栏中已完成章节 */
+li.chapter-done .done-tick {
+    color: #2c8a2c;
+    font-weight: bold;
+    margin-left: 2px;
+}
+
+li.chapter-done > a,
+li.chapter-done .chapter-link-wrapper > a {
+    color: #2c8a2c;
+}
+
+/* 章节末尾的打卡按钮 */
+#rust-done-btn {
+    display: block;
+    margin: 32px auto 12px;
+    padding: 10px 22px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--search-mark-bg, #ce422b);
+    background: transparent;
+    border: 1.5px solid var(--search-mark-bg, #ce422b);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#rust-done-btn:hover {
+    background: var(--search-mark-bg, #ce422b);
+    color: #fff;
+}
+
+#rust-done-btn.done {
+    color: #2c8a2c;
+    border-color: #2c8a2c;
+}
+
+#rust-done-btn.done:hover {
+    background: #2c8a2c;
+    color: #fff;
+}
+
+/* ===== 自检清单：可点击打勾（状态保存在本地） ===== */
+
+.self-check-list .check-item {
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+    padding-left: 26px;
+    margin: 6px 0;
+    transition: color 0.2s ease;
+}
+
+.self-check-list .check-item::before {
+    content: "☐";
+    position: absolute;
+    left: 2px;
+    font-size: 1.1em;
+    color: var(--search-mark-bg, #ce422b);
+}
+
+.self-check-list .check-item.checked {
+    color: var(--fg-muted, #999);
+    text-decoration: line-through;
+}
+
+.self-check-list .check-item.checked::before {
+    content: "☑";
+    color: #2c8a2c;
+    text-decoration: none;
+}
+
+/* ===== 📝 记忆卡片（章末浓缩卡片） ===== */
+
+blockquote:has(h3) {
+    background: rgba(206, 66, 43, 0.06);
+    border-left-color: #ce422b;
+    border-radius: 0 8px 8px 0;
+}
+
+blockquote:has(h3) p {
+    margin: 6px 0;
+}
+
+blockquote h3:first-child {
+    margin: 0 0 8px;
+    font-size: 1.05em;
+}
+
+/* ===== 小屏适配 ===== */
+
+@media (max-width: 799px) {
+    #rust-progress-badge {
+        padding: 8px 14px;
+        font-size: 11px;
+    }
+
+    table td,
+    table th {
+        padding: 3px 8px;
+    }
+}
