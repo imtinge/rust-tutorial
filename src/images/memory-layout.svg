@@ -42,7 +42,7 @@
 
   <text x="392" y="196" font-size="12.5" font-weight="600" fill="#1f2933">为什么重要</text>
   <text x="392" y="216" font-size="11.5" fill="#2c3e50">· String 在栈上只存 ptr/len/cap，</text>
-  <text x="392" y="234" font-size="11.5" fill="#2c3e50">  真正文本在堆上（见 13.2）。</text>
+  <text x="392" y="234" font-size="11.5" fill="#2c3e50">  真正文本在堆上（见 14.2）。</text>
   <text x="392" y="252" font-size="11.5" fill="#2c3e50">· 引用存的是"地址"，不是值。</text>
 
   <text x="392" y="300" font-size="12.5" font-weight="600" fill="#1f2933">借用检查器在看什么</text>

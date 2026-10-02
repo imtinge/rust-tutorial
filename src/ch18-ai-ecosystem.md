@@ -1,4 +1,4 @@
-# 第17章 Rust 与 AI 生态：搭上 AI 快车
+# 第18章 Rust 与 AI 生态：搭上 AI 快车
 
 > **学习目标**
 > - 看清 Rust 在 AI/大模型浪潮中的位置——为什么"研究用 Python，生产看 Rust"
@@ -12,7 +12,7 @@
 
 ---
 
-## 17.1 为什么 AI 圈看上了 Rust
+## 18.1 为什么 AI 圈看上了 Rust
 
 大模型火了之后，一个分工悄悄形成了：**Python 负责"研究"，Rust 盯上"生产"**。
 
@@ -25,13 +25,13 @@
 | **部署要简单** | "依赖地狱"：服务器上装环境能折腾一天 | 编译成单个二进制文件，扔上去就跑 |
 | **并发要安全** | C++ 推理服务的 UAF（释放后使用）事故让人心累 | 编译期就把数据竞争拦在门外 |
 
-> 💡 **比喻**：Python 像大学的化学实验室——药品全、仪器全、随取随用，最适合做实验；Rust 像工厂的自动化产线——建产线慢一点，但一旦建好，跑得又快又稳、成本还低。**实验成功后要量产，就该考虑 Rust 了。**
+> **比喻**：Python 像大学的化学实验室——药品全、仪器全、随取随用，最适合做实验；Rust 像工厂的自动化产线——建产线慢一点，但一旦建好，跑得又快又稳、成本还低。**实验成功后要量产，就该考虑 Rust 了。**
 
 结果就是：HuggingFace 官方出手做了推理框架 **candle**（纯 Rust），开源推理引擎 **mistral.rs**、训练框架 **burn** 也都选择了 Rust。
 
 ---
 
-## 17.2 生态地图：Rust × AI 四大块
+## 18.2 生态地图：Rust × AI 四大块
 
 > 📖 **术语解释 · 推理（Inference）与训练（Training）**：训练是"教模型学习"（算力大户，研究阶段做）；推理是"用学好的模型回答问题"（生产阶段的主要工作）。你平时用的 ChatGPT、Ollama，跑的都是推理。
 
@@ -44,7 +44,7 @@
 | | `tch-rs` | PyTorch 的 Rust 绑定 |
 | **嵌入与分词** | `fastembed` | 文本向量嵌入（做 RAG、语义搜索的原料） |
 | | `tokenizers` | HuggingFace 分词器（模型输入的预处理） |
-| **应用接入** | `ollama` | 本地 Ollama 服务的客户端 |
+| **应用接入** | `ollama-rs` | 本地 Ollama 服务的客户端（注意：crates.io 上的 `ollama` 是 0.0.1 占位空包，别用错） |
 | | `async-openai` | OpenAI 兼容 API 的异步客户端 |
 | **Agent 编排** | `llm-chain` | LLM 应用编排（链式调用、工具调用） |
 
@@ -52,7 +52,7 @@
 
 ---
 
-## 17.3 接入 AI 的两条路线
+## 18.3 接入 AI 的两条路线
 
 写 Rust AI 应用，你面前有两条路：
 
@@ -138,7 +138,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```toml
 [dependencies]
-candle-core = "0.6"
+candle-core = "0.11"
 ```
 
 ```rust
@@ -164,36 +164,43 @@ fn main() -> Result<(), candle_core::Error> {
 ```toml
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-async-openai = "0.20"
+# 0.40 起按 API 拆 feature：用哪个开哪个，默认不带任何接口类型
+async-openai = { version = "0.42", features = ["chat-completion"] }
 ```
 
 ```rust
-use async_openai::{Client, config::OpenAIConfig};
-use async_openai::types::{
-    ChatCompletionRequestMessageArgs, CreateChatCompletionRequestArgs, Role,
+use async_openai::Client;
+// 0.40 起对话相关类型集中在 types::chat 子模块
+use async_openai::types::chat::{
+    ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs,
+    ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequestArgs,
 };
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 换成你的 key；兼容 OpenAI 及绝大多数 OpenAI 兼容服务
-    let config = OpenAIConfig::new().with_api_key(std::env::var("OPENAI_API_KEY")?);
-    let client = Client::with_config(config);
+    // Client::new() 默认从环境变量 OPENAI_API_KEY 读 key；
+    // 指向其他 OpenAI 兼容服务时用 Client::with_config + OpenAIConfig::with_api_base
+    let client = Client::new();
 
+    // 每个角色有独立的 builder，最后包进对应枚举 variant
     let req = CreateChatCompletionRequestArgs::default()
         .model("gpt-4o-mini")
         .messages([
-            ChatCompletionRequestMessageArgs::default()
-                .role(Role::System)
-                .content("你是一个简洁的 Rust 助教。")
-                .build()?,
-            ChatCompletionRequestMessageArgs::default()
-                .role(Role::User)
-                .content("用一句话解释生命周期")
-                .build()?,
+            ChatCompletionRequestMessage::System(
+                ChatCompletionRequestSystemMessageArgs::default()
+                    .content("你是一个简洁的 Rust 助教。")
+                    .build()?,
+            ),
+            ChatCompletionRequestMessage::User(
+                ChatCompletionRequestUserMessageArgs::default()
+                    .content("用一句话解释生命周期")
+                    .build()?,
+            ),
         ])
         .build()?;
 
-    let resp = client.chat().completions().create(req).await?;
+    // 注意：是 client.chat().create()，没有 .completions() 中间层
+    let resp = client.chat().create(req).await?;
     if let Some(choice) = resp.choices.first() {
         println!("{}", choice.message.content.as_deref().unwrap_or("（空）"));
     }
@@ -201,7 +208,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-> ⚠️ **注意**：上面是 `async-openai` 0.20 左右的写法，**具体类型名/方法随版本会变**——以 `docs.rs/async-openai` 为准。它内部也用 `reqwest` + `serde`，你 17.3 练的"结构体 + HTTP"功底直接派上用场。
+> ⚠️ **注意**：以上为 `async-openai` 0.42 的写法（2026 年初实测编译通过）。该 crate 的模块路径与 feature 划分在 0.40 前后有过大改——**以 `docs.rs/async-openai` 的当前版本为准**。它内部仍用 `reqwest` + `serde`，你练的"结构体 + HTTP"功底直接派上用场。
 
 ### 顺带一提：用 fastembed 做文本嵌入
 
@@ -209,15 +216,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ```toml
 [dependencies]
-fastembed = "2"
+fastembed = "7"
 ```
 
 ```rust
-use fastembed::{TextEmbedding, InitOptions};
+use fastembed::{EmbeddingModel, TextInitOptions, TextEmbedding};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 首次运行会自动下载模型权重（约几十 MB）
-    let model = TextEmbedding::try_new(Default::default())?;
+    // 用 TextInitOptions::new 指定模型（旧的初始化选项类型已 deprecated）
+    let mut model = TextEmbedding::try_new(
+        TextInitOptions::new(EmbeddingModel::AllMiniLML6V2),
+    )?;
+    // 首次运行会自动下载模型权重（约几十 MB）；embed 需要 &mut self
     let embeddings = model.embed(vec!["你好，世界", "Rust 真快"], None)?;
 
     let v = &embeddings[0];
@@ -232,17 +242,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### 训练侧一览：用 burn 定义模型
 
-研究侧多用 Python 训练，但 Rust 也有通用深度学习框架 `burn`（PyTorch 风格）。下面示意如何定义一个最简单的两层 MLP 并前向：
+研究侧多用 Python 训练，但 Rust 也有通用深度学习框架 `burn`（PyTorch 风格）。下面是一个 0.21 实测可编译的最小 MLP——定义、构造、前向、换后端都在里面：
 
 ```toml
 [dependencies]
-burn = { version = "0.13", features = ["std"] }
+# 打开 ndarray feature 才有该后端；derive 宏由默认配置自带，无需单独 feature
+burn = { version = "0.21", features = ["ndarray"] }
+burn-ndarray = "0.21"   # 后端类型 NdArray / NdArrayDevice 在这里
 ```
 
 ```rust
-use burn::nn::{Linear, LinearConfig};
 use burn::module::Module;
-use burn::tensor::{Backend, Tensor};
+use burn::nn::{Linear, LinearConfig};
+use burn::tensor::backend::Backend;   // 0.21：Backend 在 tensor::backend 下
+use burn::tensor::Tensor;
+use burn_ndarray::{NdArray, NdArrayDevice};
 
 #[derive(Module, Debug)]
 pub struct Mlp<B: Backend> {
@@ -250,18 +264,34 @@ pub struct Mlp<B: Backend> {
 }
 
 impl<B: Backend> Mlp<B> {
+    pub fn new(device: &B::Device) -> Self {
+        Self {
+            linear: LinearConfig::new(3 /* 输入维 */, 2 /* 输出维 */).init(device),
+        }
+    }
+
     /// 一次前向：线性变换后接 ReLU 激活
     pub fn forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2> {
-        self.linear.forward(x).relu()
+        // 0.21：激活函数在 burn::tensor::activation 模块（Tensor::relu 是私有的）
+        burn::tensor::activation::relu(self.linear.forward(x))
     }
+}
+
+fn main() {
+    let device = NdArrayDevice::Cpu;
+    let model = Mlp::<NdArray>::new(&device);
+    // 一批 1 条、每条 3 维的输入
+    let x = Tensor::ones([1, 3], &device);
+    let y = model.forward(x);
+    println!("输出形状: {:?}", y.shape()); // Shape { dims: [1, 2] }
 }
 ```
 
-> 💡 **说明**：上面是示意（略去了 `new()` 构造与训练循环）。`burn` 的最大卖点是能一份代码编译到 CPU/GPU/WebGPU 多种后端，且训练可完全用 Rust 写。多数团队生产里用**现成模型 + Rust 做接入与推理**，而非从零训练——所以比起 `burn`，先把 `candle` / `async-openai` / `fastembed` 用熟更划算。
+> 💡 **说明**：burn 的最大卖点是 `<B: Backend>` 泛型——同一份模型代码，换 `burn-wgpu`（GPU）、`burn-candle`、`burn-tch`（LibTorch）即可换后端，也支持 `Autodiff` 装饰器做训练。上面只跑前向（推理）；完整训练循环需要 `burn::train`（开 `train` feature）。多数团队生产里用**现成模型 + Rust 做接入与推理**，所以比起 `burn`，先把 `candle` / `async-openai` / `fastembed` 用熟更划算。
 
 ---
 
-## 17.4 课后练习
+## 18.4 课后练习
 
 ### 基础题
 
@@ -270,7 +300,7 @@ impl<B: Backend> Mlp<B> {
 <details>
 <summary>参考答案要点</summary>
 
-服务端会持续返回多行 JSON（每行一个 token 增量），HTTP 连接不关闭。`resp.json()` 期待一个完整 JSON 文档，会一直等到超时。要消费流式响应，需按行读取（`bytes_stream()` + 按行切分），或直接用 `ollama`/`async-openai` 这类封装好的客户端 crate。
+服务端会持续返回多行 JSON（每行一个 token 增量），生成结束后连接关闭。`resp.json()` 期待的是**单个**完整 JSON 文档——读到第二行 JSON 时就会报反序列化错误（`trailing characters`），并不能拿到完整结果。要消费流式响应，需用 `bytes_stream()` 按行读取、逐行解析，或直接用 `ollama-rs`/`async-openai` 这类已封装流式接口的客户端 crate。
 </details>
 
 ### 进阶题
@@ -290,16 +320,17 @@ impl<B: Backend> Mlp<B> {
 <details>
 <summary>参考答案要点</summary>
 
-`fastembed` 的用法：`TextEmbedding::try_new(Default::default())?` 初始化，`model.embed(vec!["你好，世界"], false)?` 得到 `Vec<Embedding>`。向量的典型长度是 384 或 768（取决于模型），是 `Vec<f32>`。有了向量就能算余弦相似度，实现"意思相近的文本得分高"。
+`fastembed` 7 的用法：`TextEmbedding::try_new(TextInitOptions::new(EmbeddingModel::AllMiniLML6V2))?` 初始化，`model.embed(vec!["你好，世界"], None)?` 得到 `Vec<Embedding>`（`model` 需声明 `mut`）。向量的典型长度是 384 或 768（取决于模型），是 `Vec<f32>`。有了向量就能算余弦相似度，实现"意思相近的文本得分高"。
 </details>
 
 ---
 
-## 17.5 Mini Project：命令行 AI 问答助手
+## 18.5 Mini Project：命令行 AI 问答助手
 
 把实战热身升级成**多轮对话**：循环读用户输入，维护对话历史，支持 `quit` 退出——一个 60 行就能写完的"本地 ChatGPT 终端版"。
 
 ```rust
+// 📎 片段 1/2：请求/响应结构体
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
 
@@ -328,6 +359,7 @@ struct RespMessage {
 ```
 
 ```rust
+// 📎 片段 2/2：请求函数 + 多轮对话主循环
 async fn ask(
     client: &reqwest::Client,
     messages: Vec<Message>,
@@ -382,13 +414,97 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+<details>
+<summary>👉 点开：AI 问答助手完整可运行版（✅）</summary>
+
+```rust
+use serde::{Deserialize, Serialize};
+use std::io::{self, Write};
+
+#[derive(Serialize, Clone)]
+struct Message {
+    role: String,
+    content: String,
+}
+
+#[derive(Serialize)]
+struct ChatRequest {
+    model: String,
+    messages: Vec<Message>,
+    stream: bool,
+}
+
+#[derive(Deserialize)]
+struct ChatResponse {
+    message: RespMessage,
+}
+
+#[derive(Deserialize)]
+struct RespMessage {
+    content: String,
+}
+
+async fn ask(
+    client: &reqwest::Client,
+    messages: Vec<Message>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let body = ChatRequest {
+        model: String::from("qwen3"),
+        messages,
+        stream: false,
+    };
+    let resp: ChatResponse = client
+        .post("http://localhost:11434/api/chat")
+        .json(&body)
+        .send()
+        .await?
+        .json()
+        .await?;
+    Ok(resp.message.content)
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let mut messages = vec![Message {
+        role: String::from("system"),
+        content: String::from("你是一个简洁友好的 Rust 助教。"),
+    }];
+    println!("🦀 AI 问答助手（输入 quit 退出）");
+    loop {
+        print!("你: ");
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_string();
+        if input.is_empty() || input == "quit" {
+            break;
+        }
+        messages.push(Message { role: String::from("user"), content: input });
+        match ask(&client, messages.clone()).await {
+            Ok(reply) => {
+                println!("AI: {}", reply);
+                messages.push(Message { role: String::from("assistant"), content: reply });
+            }
+            Err(e) => {
+                println!("请求失败: {}（先确认 ollama serve 已启动）", e);
+                messages.pop();
+            }
+        }
+    }
+    Ok(())
+}
+```
+
+</details>
+
 > 📌 **要点**：多轮对话的本质就一句话——**把历史消息原样发回去**。AI 没有记忆，你每轮把整个 `messages` 数组发给它，它才"记得"上文。这也是所有 ChatGPT 类应用的通用做法。
 
 > 🦀 **恭喜！** 应用方向三部曲（WebAssembly、Cargo 进阶、AI 生态）到此完成。接下来就是 5 个实战项目——从实战 1 命令行 Todo 工具开始，一路写到实战 5 的 Axum Web API。而且你已经会调 AI 了——卡住时让它给你讲报错，比干瞪眼快十倍！
 
 ---
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：Python 做研究，Rust 做生产——AI 应用接入层是 Rust 的新战场。
 >
@@ -405,7 +521,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 - [ ] 我能说出 Rust 在 AI 生产场景的四个优势（快、省内存、易部署、并发安全）
 - [ ] 我知道推理和训练的区别
-- [ ] 我认识 candle、burn、ollama、async-openai 各自的定位
+- [ ] 我认识 candle、burn、ollama-rs、async-openai 各自的定位
 - [ ] 我理解本地推理和调 API 两条路线的取舍
 - [ ] 我能用 reqwest + serde 构造请求/响应结构体调用 HTTP API
 - [ ] 我理解多轮对话要"把历史原样发回去"

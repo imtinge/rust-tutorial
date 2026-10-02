@@ -14,7 +14,7 @@
 
 > 📖 **术语解释 · 迭代器（Iterator）**：一种可以逐个遍历序列元素的模式。Rust 的迭代器是惰性的（lazy）——只有在被消费时才计算。相当于 Python 的 `iter()` + 生成器，但零运行时开销。
 
-> 💡 **比喻**：迭代器就像自助餐的传送带——你站在那等，传送带一个个把菜送到你面前。菜在传送带上时还没被取走（惰性），你伸手取了才算消费。
+> **比喻**：迭代器就像自助餐的传送带——你站在那等，传送带一个个把菜送到你面前。菜在传送带上时还没被取走（惰性），你伸手取了才算消费。
 
 ### 基本使用
 
@@ -55,7 +55,7 @@ fn main() {
 
 ## 9.2 迭代器适配器：链式调用
 
-> 💡 **比喻**：迭代器适配器就像工厂流水线——原料经过一道道工序（map、filter、collect），最终变成成品。每道工序都接收上一道的结果，干净利落。
+> **比喻**：迭代器适配器就像工厂流水线——原料经过一道道工序（map、filter、collect），最终变成成品。每道工序都接收上一道的结果，干净利落。
 
 ### map：变换
 
@@ -92,7 +92,7 @@ fn main() {
 }
 ```
 
-> ⚠️ **新手坑**：迭代器是惰性的！你写了 `.map(|x| x * 2)` 但忘了 `.collect()`，什么都不会发生。必须用 `collect()` 或 `for` 循环来"消费"迭代器。
+> ⚠️ **新手坑**：迭代器是惰性的！你写了 `.map(|x| x * 2)` 但忘了 `.collect()`，什么都不会发生。必须有"消费者"（consuming adapter）来驱动它：`collect()`、`for` 循环、`sum()`（求和）等都是消费者；其中最基础的消费者是 `next()`——`collect`、`sum` 内部也是靠反复调用 `next()` 逐个取元素。
 
 > 🔧 **报错解法**：`collect()` 需要类型标注。编译器报 `type annotations needed` 时，加上 `: Vec<类型>` 或用 turbofish 语法 `.collect::<Vec<i32>>()`。
 
@@ -157,7 +157,7 @@ fn main() {
 
 > 📖 **术语解释 · 模块（Module）**：用 `mod` 关键字定义的代码组织单元。模块可以包含函数、结构体、常量等。相当于 Python 的 module 或 JS 的 ES Module。
 
-> 💡 **比喻**：模块系统就像公司的组织架构——公司（crate）下面有部门（mod），部门下面有小组（子 mod），小组里有员工（函数/结构体）。`pub` 决定哪些是"公开"的，哪些是"内部"的。
+> **比喻**：模块系统就像公司的组织架构——公司（crate）下面有部门（mod），部门下面有小组（子 mod），小组里有员工（函数/结构体）。`pub` 决定哪些是"公开"的，哪些是"内部"的。
 
 ### 定义模块
 
@@ -213,6 +213,23 @@ fn main() {
 
 > ⚠️ **新手坑**：避免在库代码（lib）中用 `use xxx::*`——容易造成名称冲突，也不清晰。在测试代码里用用可以。
 
+### 同名类型：模块内不行，模块间可以
+
+```rust
+mod chinese { pub struct Chef; }
+mod french  { pub struct Chef; }   // 不同模块同名：OK
+
+fn main() {
+    // 同一个模块里两个类型不能同名（error: the name `Chef` is defined multiple times）；
+    // 模块间的同名用路径区分，或 use ... as 起别名：
+    use chinese::Chef as ChineseChef;
+    let _ = ChineseChef;
+    let _ = french::Chef;
+}
+```
+
+> 📌 **要点**：名字的唯一性是按"命名空间（模块）"算的，不是按整个程序。想要"同一个东西的第二个名字"，用类型别名 `type Meters = u32;`；想要"两个不同东西同名"，把它们放进不同模块。
+
 ### 路径的三个起点：`self`、`super`、`crate`
 
 写路径时除了"从当前位置往下找"，还可以明确指定起点：
@@ -234,7 +251,25 @@ fn announce() { println!("开始备菜！"); }
 fn main() { kitchen::prepare(); }
 ```
 
-> 📖 **术语解释 · 路径起点**：`self` = 当前模块（就像文件系统里的 `./`），`super` = 父模块（就像 `..`），`crate` = 当前 crate 的根（就像 `/`）。第 11 章写单元测试时你会频繁见到 `use super::*;`——意思就是"把父模块（被测代码）的所有东西引进测试模块"。
+> 📖 **术语解释 · 路径起点**：`self` = 当前模块（就像文件系统里的 `./`），`super` = 父模块（就像 `..`），`crate` = 当前 crate 的根（就像 `/`）。第 12 章写单元测试时你会频繁见到 `use super::*;`——意思就是"把父模块（被测代码）的所有东西引进测试模块"。
+
+注意别把路径起点 `self::` 和方法接收者 `&self` 搞混——它们可以同时出现：
+
+```rust
+fn announce() { println!("当前模块的通知"); }
+
+struct Waiter;
+impl Waiter {
+    fn serve(&self) {              // &self：方法接收者（调用这个方法的那个实例）
+        self::announce();          // self:: 路径起点：从当前模块找 announce
+    }
+}
+
+fn main() {
+    let w = Waiter;
+    w.serve();                     // 实际调用一个 &self 方法
+}
+```
 
 ---
 
@@ -272,6 +307,8 @@ pub fn add(a: i32, b: i32) -> i32 { a + b }
 pub mod helper;     // 引入 utils/helper.rs
 pub fn greet() { println!("Utils says hi"); }
 ```
+
+> 💡 **提示**：示例没有给出 `helper.rs` 的内容——该文件可以先为空（`mod helper;` 只要求文件存在），以后再往里加 `pub fn ...`。
 
 > 💡 **技巧**：两种风格都合法：`utils/mod.rs` 是 2015 旧风格，`utils.rs` + `utils/helper.rs` 是 2018+ 新风格，官方教程采用后者，新项目推荐后者。`cargo` 都能自动找到对应文件。
 
@@ -404,6 +441,7 @@ fn main() {
 自定义一个迭代器，把长文本按固定字数切成一块一块地产出——像切蛋糕一样切文本：
 
 ```rust
+// 📎 片段 1/2：实现 Chunks 迭代器
 struct Chunks<'a> {
     text: &'a str,
     size: usize,   // 每块字数
@@ -420,6 +458,7 @@ impl<'a> Iterator for Chunks<'a> {
 ```
 
 ```rust
+// 📎 片段 2/2：使用 Chunks
 fn main() {
     let text = "Rust是一门很棒的系统编程语言";
     // 每 4 个字一块
@@ -433,9 +472,46 @@ fn main() {
 }
 ```
 
-> 📌 **要点**：自定义迭代器实现后，可以无缝使用 `.take()`、`.filter()`、`.map()` 等所有适配器——这就是 Rust 迭代器设计的精妙之处。注意 `Chunks` 借用了文本（`&'a str`），不拷贝数据。
+<details>
+<summary>👉 点开：查看「文本分块迭代器」完整可运行版（✅）</summary>
 
-> ### 📝 记忆卡片
+```rust
+struct Chunks<'a> {
+    text: &'a str,
+    size: usize, // 每块字数
+}
+impl<'a> Iterator for Chunks<'a> {
+    type Item = String;
+    fn next(&mut self) -> Option<String> {
+        if self.text.is_empty() {
+            return None;
+        }
+        let chunk: String = self.text.chars().take(self.size).collect();
+        self.text = &self.text[chunk.len()..]; // 跳过已取字符
+        Some(chunk)
+    }
+}
+
+fn main() {
+    let text = "Rust是一门很棒的系统编程语言";
+    // 每 4 个字一块
+    for (i, chunk) in (Chunks { text, size: 4 }).enumerate() {
+        println!("第{}块: {}", i + 1, chunk);
+    }
+    // 用适配器组合：只要前 3 块并转大写
+    let first3: Vec<String> = Chunks { text: "abcdefg", size: 2 }
+        .take(3)
+        .map(|s| s.to_uppercase())
+        .collect();
+    println!("{:?}", first3); // ["AB", "CD", "EF"]
+}
+```
+
+</details>
+
+> 📌 **要点**：自定义迭代器实现后，可以无缝使用 `.take()`、`.filter()`、`.map()` 等所有适配器——这就是 Rust 迭代器设计的精妙之处。注意 `Chunks` 借用了文本（持有 `&'a str`，不复制整段文本），但每一块的产出是新分配的 `String`。
+
+> ### 记忆卡片
 >
 > **一句话**：迭代器是惰性的流水线，模块是代码的组织架构。
 >

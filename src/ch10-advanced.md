@@ -8,13 +8,23 @@
 >
 > **预计学习时长**：3-4 小时
 
+> 📖 **本章地图**：这是一章"进阶主题合集"，内容分三组，**不必一次学完**：
+>
+> | 组 | 小节 | 回答的问题 |
+> |---|---|---|
+> | ① 智能指针 | 10.1、10.4 | 谁拥有数据？`Box` / `Rc` / `RefCell` 怎么选；`Deref`、`Drop` 原理 |
+> | ② 并发 | 10.2、10.3 | 多线程怎么共享数据（`Arc<Mutex>`）、怎么通信（channel）；`Send`/`Sync` |
+> | ③ 胶水机制 | 10.5、10.6 | 类型怎么互转（`From`/`Into`）、宏是怎么回事 |
+>
+> 第一次读按顺序即可；回来复习时按组跳读。
+
 ---
 
 ## 10.1 智能指针：比引用更强大的"指针"
 
 > 📖 **术语解释 · 智能指针（Smart Pointer）**：不仅指向数据，还拥有数据所有权、并在离开作用域时自动清理的"高级引用"。`String` 和 `Vec` 本质上也是智能指针。
 
-> 💡 **比喻**：普通引用就像你指着别人的杯子说"那是他的"——你不拥有它。智能指针就像你自己拿了一个杯子——你拥有它，用完自动回收。
+> **比喻**：普通引用就像你指着别人的杯子说"那是他的"——你不拥有它。智能指针就像你自己拿了一个杯子——你拥有它，用完自动回收。
 
 ### Box：把数据放到堆上
 
@@ -25,13 +35,13 @@ fn main() {
 }   // b 离开作用域，堆上的 5 自动释放
 ```
 
-> 💡 **比喻**：`Box` 就像你租了一个储物柜——把东西放进去，钥匙在你手里，不租了（离开作用域）东西自动搬走。主要用于递归类型和较大的数据。
+> **比喻**：`Box` 就像你租了一个储物柜——把东西放进去，钥匙在你手里，不租了（离开作用域）东西自动搬走。主要用于递归类型和较大的数据。
 
 ### Rc：引用计数（共享所有权）
 
 > 📖 **术语解释 · Rc**：Reference Counted，引用计数智能指针。允许多个所有者共享同一份数据——每多一个引用计数 +1，少一个 -1，归零时释放。
 
-> 💡 **比喻**：`Rc` 就像合租的房子——多个室友共享一套房，最后一个人搬走时退租。但合租有个规矩：不能同时改装修（不可变）。
+> **比喻**：`Rc` 就像合租的房子——多个室友共享一套房，最后一个人搬走时退租。但合租有个规矩：不能同时改装修（不可变）。
 
 ```rust
 use std::rc::Rc;
@@ -168,7 +178,31 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：`Mutex` 就像公共厕所——一次只能一个人用，进去要锁门（`lock()`），出来要开门。`Arc<Mutex<T>>` 是多线程共享可变数据的标准组合。
+> **比喻**：`Mutex` 就像公共厕所——一次只能一个人用，进去要锁门（`lock()`），出来要开门。`Arc<Mutex<T>>` 是多线程共享可变数据的标准组合。
+
+### Scoped threads：想借就借，不用 Arc
+
+`thread::spawn` 要求闭包 `'static`——线程可能跑很久，编译器不能让它借一个随时可能失效的局部变量，所以才要 `move` 或 `Arc`。但很多时候你只是想"分几个线程帮我算一下、算完都回来"——**`thread::scope` 保证：scope 一返回，里面所有线程必定已经结束**。编译器知道这个保证，于是子线程可以直接借用当前栈上的数据，不用 `move`、不用 `Arc`：
+
+```rust
+use std::thread;
+
+fn main() {
+    let data = vec![1, 2, 3, 4, 5];
+
+    thread::scope(|s| {
+        // 两个线程同时不可变借用 data 的不同部分——合法
+        let h1 = s.spawn(|| println!("前一半: {:?}", &data[..2]));
+        let h2 = s.spawn(|| println!("后一半: {:?}", &data[2..]));
+        h1.join().unwrap();
+        h2.join().unwrap();
+    });
+    // scope 返回 = 所有线程已 join，data 安然无恙还能继续用
+    println!("data 还在: {:?}", data);
+}
+```
+
+> 📌 **要点**：数据不需要跨线程转移所有权、且你能明确"等待所有线程干完再往下走"时，scoped threads 比 `Arc` 省事得多——这也是 CPU 密集型并行的常用写法（`rayon` 的并行迭代器内部就是类似的作用域模型）。
 
 ---
 
@@ -190,7 +224,7 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：通道就像快递传送——你在一头放东西（`tx.send()`），另一头自动收到（`rx` 遍历）。发完就关，收完就停。
+> **比喻**：通道就像快递传送——你在一头放东西（`tx.send()`），另一头自动收到（`rx` 遍历）。发完就关，收完就停。
 
 ---
 
@@ -201,6 +235,7 @@ fn main() {
 > 📖 **术语解释 · Deref**：解引用 Trait。实现 `Deref` 后，智能指针可以自动转换为普通引用，用 `*` 解引用或直接调用方法。就像快递箱外面贴了一个"内容物等同 XXX"的标签——你拿着箱子就等于拿着内容。
 
 ```rust
+// 📎 片段 1/2：为 MyBox 实现 Deref
 use std::ops::Deref;
 struct MyBox<T>(T);
 impl<T> Deref for MyBox<T> {
@@ -210,20 +245,47 @@ impl<T> Deref for MyBox<T> {
 ```
 
 ```rust
+// 📎 片段 2/2：使用自动解引用
 let x = MyBox(String::from("hello"));
 println!("{}", *x);   // 解引用: hello
 println!("{}", x.len()); // 自动 deref 调用 len()
 ```
 
-> 💡 **比喻**：`Deref` 就像翻译官——你跟外国人说话（操作 `Box<T>`），翻译官自动帮你翻成当地语言（当作 `T` 用），你不需要自己翻。
+<details>
+<summary>👉 点开：查看「MyBox 实现 Deref」完整可运行版（✅）</summary>
+
+```rust
+use std::ops::Deref;
+
+struct MyBox<T>(T);
+impl<T> Deref for MyBox<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+fn main() {
+    let x = MyBox(String::from("hello"));
+    println!("{}", *x); // 解引用: hello
+    println!("{}", x.len()); // 自动 deref 调用 len()
+}
+```
+
+</details>
+
+> **比喻**：`Deref` 就像翻译官——你跟外国人说话（操作 `Box<T>`），翻译官自动帮你翻成当地语言（当作 `T` 用），你不需要自己翻。
 
 > ⚠️ **新手坑**：`String` 实现了 `Deref<Target=str>`，所以 `&String` 能自动转成 `&str`。这就是为什么你传 `&String` 给接收 `&str` 的函数不会报错。
+
+> 📖 **术语解释 · Deref coercion（解引用强制转换）**：当你把 `&MyType` 传给一个要 `&Target` 的函数时，如果 `MyType: Deref<Target=Target>`，编译器**自动连续解引用**帮你转类型，不用手写 `&*x`。转换链可以有多级（如 `&Rc<String>` → `&String` → `&str`）。方法调用时也有自动 deref——`x.len()` 会自动尝试 `x`、`*x`、`**x`……所以 `Box<String>` 也能直接 `.len()`。它只对**引用**生效，不会把拥有权转走。
 
 ### Drop Trait：离开作用域时自动清理
 
 > 📖 **术语解释 · Drop**：析构 Trait。实现 `Drop` 后，值离开作用域时自动调用 `drop` 方法清理资源。就像租的房子退租时自动打扫干净。
 
 ```rust
+// 📎 片段 1/2：为 Resource 实现 Drop
 struct Resource { name: String }
 impl Drop for Resource {
     fn drop(&mut self) {
@@ -233,13 +295,35 @@ impl Drop for Resource {
 ```
 
 ```rust
+// 📎 片段 2/2：main 中正常使用
 fn main() {
     let r = Resource { name: String::from("数据库连接") };
     println!("使用中...");
 } // 离开作用域，自动打印 "清理: 数据库连接"
 ```
 
-> 💡 **比喻**：`Drop` 就像酒店退房——你不需要手动去前台退钥匙，退房时间一到自动帮你收拾，收回钥匙。
+<details>
+<summary>👉 点开：查看「Resource 实现 Drop」完整可运行版（✅）</summary>
+
+```rust
+struct Resource {
+    name: String,
+}
+impl Drop for Resource {
+    fn drop(&mut self) {
+        println!("清理: {}", self.name);
+    }
+}
+
+fn main() {
+    let r = Resource { name: String::from("数据库连接") };
+    println!("使用中...");
+} // 离开作用域，自动打印 "清理: 数据库连接"
+```
+
+</details>
+
+> **比喻**：`Drop` 就像酒店退房——你不需要手动去前台退钥匙，退房时间一到自动帮你收拾，收回钥匙。
 
 ---
 
@@ -248,6 +332,7 @@ fn main() {
 > 📖 **术语解释 · From / Into**：标准库的类型转换 Trait。实现 `From` 会自动获得 `Into`。就像你写了"怎么把人民币转成美元"，反过来"美元转人民币"也自动会了。
 
 ```rust
+// 📎 片段 1/2：实现 From<Celsius>
 struct Celsius(f64);
 struct Fahrenheit(f64);
 impl From<Celsius> for Fahrenheit {
@@ -258,12 +343,34 @@ impl From<Celsius> for Fahrenheit {
 ```
 
 ```rust
+// 📎 片段 2/2：调用自动获得的 into()
 let c = Celsius(100.0);
 let f: Fahrenheit = c.into();  // 自动转换
 println!("{:.1}°F", f.0);       // 212.0°F
 ```
 
-> 💡 **比喻**：`From` 就像你学会了"把人民币换成美元"的手续——实现这个方向后，编译器自动赠送 `Into`，让你换个姿势调用（`usd: Usd = rmb.into()`），方向不变。想反向？老老实实再写一个 `impl From<Usd> for Rmb`。
+<details>
+<summary>👉 点开：查看「From 温度转换」完整可运行版（✅）</summary>
+
+```rust
+struct Celsius(f64);
+struct Fahrenheit(f64);
+impl From<Celsius> for Fahrenheit {
+    fn from(c: Celsius) -> Self {
+        Fahrenheit(c.0 * 1.8 + 32.0)
+    }
+}
+
+fn main() {
+    let c = Celsius(100.0);
+    let f: Fahrenheit = c.into(); // 自动转换
+    println!("{:.1}°F", f.0); // 212.0°F
+}
+```
+
+</details>
+
+> **比喻**：`From` 就像你学会了"把摄氏度换算成华氏度"的手续——实现这个方向后，编译器自动赠送 `Into`，让你换个姿势调用（`f: Fahrenheit = c.into()`），方向不变。想反向（华氏度 → 摄氏度）？老老实实再写一个 `impl From<Fahrenheit> for Celsius`。
 
 > ⚠️ **新手坑**：`From` 和 `Into` 会消耗原始值的所有权。如果转换**可能失败**，用 `TryFrom`/`TryInto`（返回 `Result`）；如果只想借用不转移所有权，实现 `AsRef` 或手写返回引用的方法。
 
@@ -273,7 +380,7 @@ println!("{:.1}°F", f.0);       // 212.0°F
 
 > 📖 **术语解释 · 宏（Macro）**：一种在编译时生成代码的机制。`println!`、`vec!`、`format!` 都是宏。宏用 `!` 和普通函数区分。
 
-> 💡 **比喻**：宏就像厨房里的"自动炒菜机"——你告诉它配方（宏定义），它自动炒出一盘菜（生成代码）。函数是你自己炒的菜，宏是机器帮你炒的。
+> **比喻**：宏就像厨房里的"自动炒菜机"——你告诉它配方（宏定义），它自动炒出一盘菜（生成代码）。函数是你自己炒的菜，宏是机器帮你炒的。
 
 ### 声明宏：macro_rules!
 
@@ -388,6 +495,7 @@ fn main() {
 用 `Arc` + `Mutex` + 多线程实现并行计算 1 到 10000 的和：
 
 ```rust
+// 📎 片段 1/2：并行求和函数
 use std::sync::{Arc, Mutex};
 use std::thread;
 fn parallel_sum(n: u64, threads: usize) -> u64 {
@@ -408,18 +516,54 @@ fn parallel_sum(n: u64, threads: usize) -> u64 {
 }
 ```
 
-> 📌 **要点**：最后一句不能直接写 `*result.lock().unwrap()`——`MutexGuard` 是临时值，作为块尾表达式会活到作用域结束，而那时 `result`（Arc）已被 Drop，导致悬垂借用。先赋值给 `total` 再返回，让 `Guard` 在语句结束时释放锁。这是和第 12 章编译错误攻坚呼应的经典案例。
+> 📌 **要点（2024 edition 实测）**：最后一句**直接写** `*result.lock().unwrap()` 作为尾表达式，在 **Rust 2024 edition 下可以编译通过**——2024 调整了尾表达式里临时值的 drop 顺序：临时的 `MutexGuard` 在返回值被 move 走之后就立刻释放；而在 2021 及更早 edition 下，同样的代码会报 `error[E0597]: 'result' does not live long enough`（Guard 作为临时值被认为会活到作用域末尾）。本书代码仍采用 `let total = ...; total` 的显式写法：意图更清晰，且锁在语句结束时就及时释放，不必等到函数收尾。
 
 ```rust
+// 📎 片段 2/2：调用
 fn main() {
     println!("1 到 10000 的和: {}", parallel_sum(10000, 4));
 }
 // 输出: 50005000
 ```
 
+<details>
+<summary>👉 点开：查看「多线程并行求和」完整可运行版（✅）</summary>
+
+```rust
+use std::sync::{Arc, Mutex};
+use std::thread;
+
+fn parallel_sum(n: u64, threads: usize) -> u64 {
+    let chunk = n / threads as u64;
+    let result = Arc::new(Mutex::new(0u64));
+    let handles: Vec<_> = (0..threads)
+        .map(|i| {
+            let result = Arc::clone(&result);
+            let start = i as u64 * chunk + 1;
+            let end = if i == threads - 1 { n } else { start + chunk - 1 };
+            thread::spawn(move || {
+                let local: u64 = (start..=end).sum();
+                *result.lock().unwrap() += local;
+            })
+        })
+        .collect();
+    for h in handles {
+        h.join().unwrap();
+    }
+    let total = *result.lock().unwrap();
+    total
+}
+
+fn main() {
+    println!("1 到 10000 的和: {}", parallel_sum(10000, 4));
+}
+```
+
+</details>
+
 > 📌 **要点**：这是 `Arc<Mutex<T>>` 的经典使用模式——多个线程各算一部分，通过互斥锁安全地汇总。实际工程中大数据处理都这么做。
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：独占用 Box，共享用 Arc，共享还要改就 `Arc<Mutex<T>>`。
 >
@@ -449,4 +593,4 @@ fn main() {
 
 ---
 
-> 🦀 **下一章预告**：第 11 章我们学测试——让代码值得信赖，写出可以验证正确性的 Rust 程序。
+> 🦀 **下一章预告**：第 11 章进入异步世界——`async/await` 与 tokio，让一个线程同时照应海量任务；第 12 章再学测试，让代码值得信赖。

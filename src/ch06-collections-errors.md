@@ -27,7 +27,9 @@ fn main() {
 
 > 📖 **术语解释 · Vec**：Rust 的动态数组，能在堆上自动扩容。相当于 Python 的 `list`、JS 的 `Array`。`T` 是泛型参数，表示数组里装什么类型。
 
-> 💡 **比喻**：`Vec` 就像一列可以自动加车厢的火车——你往里放东西，满了就自动加一节车厢，不用你操心。
+> **比喻**：`Vec` 就像一列可以自动加车厢的火车——你往里放东西，满了就自动加一节车厢，不用你操心。
+
+> 🐍 **Python/JS 类比**：`Vec<T>` ≈ Python 的 `list`、JS 的 `Array`——`push`、`len()`、`v[0]` 几乎一样。但有三个坑：① 越界访问直接 panic，包括 Python 里习以为常的负数下标 `v[-1]`：Rust 的负数不表示"倒数"，要取最后一个用 `v[v.len()-1]` 或更安全的 `v.last()`；② 一个 Vec 只能装同一种类型 `T`，不像 Python list 能混装；③ `for x in &v` 是借用遍历，直接 `for x in v` 会把整个 Vec 消费掉（move）。
 
 ### 用 `vec!` 宏快速创建
 
@@ -70,6 +72,7 @@ fn main() {
 先看一段代码——创建和操作字符串：
 
 ```rust
+// 📎 片段 1/2：创建和操作 String
 let mut s = String::from("hello");
 s.push_str(", world");  // 追加
 s.push('!');           // 追加单字符
@@ -77,16 +80,35 @@ println!("{}", s);     // hello, world!
 ```
 
 ```rust
+// 📎 片段 2/2：String 与 &str 互转
 let literal: &str = "rust";
 let owned: String = literal.to_string();  // &str 转 String
 let slice: &str = &owned;                  // String 转 &str
 ```
 
+<details>
+<summary>👉 点开：String 操作完整可运行版（✅）</summary>
+
+```rust
+fn main() {
+    let mut s = String::from("hello");
+    s.push_str(", world");
+    s.push('!');
+    println!("{}", s);
+
+    let literal: &str = "rust";
+    let owned: String = literal.to_string();
+    let _slice: &str = &owned;
+}
+```
+
+</details>
+
 > 📖 **术语解释 · String vs &str**：`String` 是拥有所有权的、可增长的字符串（在堆上），`&str` 是字符串的引用/切片（不拥有所有权）。就像 `String` 是你买的书，`&str` 是你从图书馆借来看的书。
 
 > ⚠️ **新手坑**：Rust 的 `String` 是 UTF-8 编码的，不支持直接用索引访问字符——因为一个 Unicode 字符可能占多个字节。`s[0]` 在 Rust 里是非法的！用 `s.chars().nth(0)` 代替（注意它返回 `Option<char>`，越界时是 `None`，要配合 `match` 或 `.unwrap()` 使用）。
 
-> 💡 **比喻**：Rust 字符串是一列 UTF-8 字节的火车。你直接数"第 3 节车厢"可能取到的不是你想要的字符——因为有的字符占 1 节车厢，有的占 3 节。用 `chars()` 方法才是按"字符"遍历。
+> **比喻**：Rust 字符串是一列 UTF-8 字节的火车。你直接数"第 3 节车厢"可能取到的不是你想要的字符——因为有的字符占 1 节车厢，有的占 3 节。用 `chars()` 方法才是按"字符"遍历。
 
 ---
 
@@ -95,6 +117,7 @@ let slice: &str = &owned;                  // String 转 &str
 先看一段代码——存入和查询：
 
 ```rust
+// 📎 片段：存入和查询（需放进 fn main）
 use std::collections::HashMap;
 let mut scores: HashMap<String, i32> = HashMap::new();
 scores.insert(String::from("Alice"), 95);
@@ -103,6 +126,24 @@ match scores.get("Alice") {
     None => println!("未找到"),
 }
 ```
+
+<details>
+<summary>👉 点开：HashMap 完整可运行版（✅）</summary>
+
+```rust
+use std::collections::HashMap;
+
+fn main() {
+    let mut scores: HashMap<String, i32> = HashMap::new();
+    scores.insert(String::from("Alice"), 95);
+    match scores.get("Alice") {
+        Some(&s) => println!("Alice: {}", s),
+        None => println!("未找到"),
+    }
+}
+```
+
+</details>
 
 > 📖 **术语解释 · HashMap**：键值对集合，相当于 Python 的 `dict`、JS 的 `Object`/`Map`。`K` 是键的类型，`V` 是值的类型。
 
@@ -119,7 +160,9 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：`entry().or_insert()` 就像抢座——有人了就不动，没人就坐下。直接 `insert` 则是强行换人。
+> 💡 **提示**：`HashMap` 用 `{:?}` 打印时，键值对的出现顺序不保证，不要依赖它——这次是 `{"a": 1, "b": 3}`，下次运行顺序可能就变了。
+
+> **比喻**：`entry().or_insert()` 就像抢座——有人了就不动，没人就坐下。直接 `insert` 则是强行换人。
 
 ---
 
@@ -138,7 +181,7 @@ fn main() {
 ### 什么时候用 panic？
 
 - 程序状态不一致，无法继续运行
-- 数组越界、除以零等编程错误
+- 数组越界、整数除以零等编程错误（注意：**浮点数**除零不 panic，会得到 `inf`/`NaN`）
 - 程序启动时配置缺失
 
 > ⚠️ **新手坑**：不要用 `panic!` 处理正常的错误情况（如文件不存在、用户输入错误）。这些应该用 `Result`。
@@ -186,6 +229,7 @@ fn main() {
 当你的函数有多种错误来源时，可以用 `enum` 统一管理：
 
 ```rust
+#![allow(dead_code)] // Io 变体在本示例中暂未构造，先允许其"未使用"
 use std::num::ParseIntError;
 
 #[derive(Debug)]
@@ -197,7 +241,7 @@ enum AppError {
 
 fn parse_config(s: &str) -> Result<i32, AppError> {
     if s.is_empty() { return Err(AppError::Empty); }
-    let n = s.parse::<i32>().map_err(AppError::Parse)?;
+    let n = s.parse::<i32>().map_err(AppError::Parse)?; // map_err：只转换错误类型，Ok 值原样保留
     Ok(n)
 }
 
@@ -208,7 +252,7 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：自定义错误类型就像快递公司的投诉分类——"丢件"、"损坏"、"延误"各有各的处理方式。用 `enum` 把它们统一管理，调用者可以 `match` 不同错误做不同处理。
+> **比喻**：自定义错误类型就像快递公司的投诉分类——"丢件"、"损坏"、"延误"各有各的处理方式。用 `enum` 把它们统一管理，调用者可以 `match` 不同错误做不同处理。
 
 ---
 
@@ -270,7 +314,7 @@ fn main() {
 use std::fs;
 fn read_numbers(path: &str) -> Result<Vec<i32>, String> {
     let content = fs::read_to_string(path)
-        .map_err(|_| String::from("文件不存在"))?;
+        .map_err(|_| String::from("文件不存在"))?; // 这里为简化演示做了错误归并：丢弃了具体的 IO 错误类型
     let mut nums = Vec::new();
     for (i, line) in content.lines().enumerate() {
         let n: i32 = line.trim().parse()
@@ -296,6 +340,7 @@ fn main() {
 用 `Vec`、`HashMap`、错误处理写一个文本词频统计器：
 
 ```rust
+// 📎 片段 1/2：词频统计函数
 use std::collections::HashMap;
 fn word_freq(text: &str) -> HashMap<&str, u32> {
     let mut map = HashMap::new();
@@ -307,6 +352,7 @@ fn word_freq(text: &str) -> HashMap<&str, u32> {
 ```
 
 ```rust
+// 📎 片段 2/2：调用并按频率排序后打印
 fn main() {
     let text = "the quick brown fox jumps over the lazy dog the fox";
     let freq = word_freq(text);
@@ -319,9 +365,36 @@ fn main() {
 // 输出：the: 3, fox: 2, quick: 1, brown: 1, ...
 ```
 
+<details>
+<summary>👉 点开：查看「单词频率统计器」完整可运行版（✅）</summary>
+
+```rust
+use std::collections::HashMap;
+
+fn word_freq(text: &str) -> HashMap<&str, u32> {
+    let mut map = HashMap::new();
+    for word in text.split_whitespace() {
+        *map.entry(word).or_insert(0) += 1;
+    }
+    map
+}
+
+fn main() {
+    let text = "the quick brown fox jumps over the lazy dog the fox";
+    let freq = word_freq(text);
+    let mut sorted: Vec<_> = freq.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+    for (word, count) in sorted {
+        println!("{}: {}", word, count);
+    }
+}
+```
+
+</details>
+
 > 📌 **要点**：`entry().or_insert(0)` 是 HashMap 的经典惯用法——"有就用，没有就插默认值"。把它记住，以后天天用。
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：集合装数据，Result 管错误——能恢复的用 `Result`，救不回来的才 `panic!`。
 >

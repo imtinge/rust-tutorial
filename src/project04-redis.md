@@ -12,7 +12,7 @@
 
 ## 项目概览
 
-> 💡 **比喻**：Redis 就像一个超级快的快递中转站——你存一个包裹（SET key value），取一个包裹（GET key），查有没有（EXISTS key），扔掉一个（DEL key）。我们来实现一个简化版。
+> **比喻**：Redis 就像一个超级快的快递中转站——你存一个包裹（SET key value），取一个包裹（GET key），查有没有（EXISTS key），扔掉一个（DEL key）。我们来实现一个简化版。
 
 ### 功能需求
 
@@ -29,10 +29,9 @@
 | 第3章 | 所有权、借用 | 数据传递 |
 | 第5章 | match、Result | 命令解析、错误处理 |
 | 第6章 | HashMap | 数据存储 |
-| 第9章 | 模块 | 代码组织 |
 | 第10章 | Arc/Mutex | 并发共享 |
 | 实战3 | async/await | 异步 TCP |
-| 第12章 | 编译错误 | 开发中的调试 |
+| 第13章 | 编译错误 | 开发中的调试 |
 
 ---
 
@@ -63,22 +62,29 @@ Redis 使用 RESP 协议通信。`SET key value` 在协议里长这样：
 格式：`*参数数\r\n` + 每个参数 `$长度\r\n内容\r\n`
 
 ```rust
+/// 信任边界：参数数是客户端声称的，必须封顶，
+/// 否则一条 `*100000000000\r\n` 就能逼服务器预分配巨量内存（DoS）。
+const MAX_ARGS: usize = 1024;
+
 fn parse_resp(data: &str) -> Option<Vec<String>> {
     let mut lines = data.split("\r\n");
     let first = lines.next()?;
     if !first.starts_with('*') { return None; }
     let count: usize = first[1..].parse().ok()?;
-    let mut result = Vec::with_capacity(count);
+    if count > MAX_ARGS { return None; }
+    let mut result = Vec::new();
     for _ in 0..count {
         let len_line = lines.next()?;
         if !len_line.starts_with('$') { return None; }
-        lines.next().map(|s| result.push(s.to_string()));
+        // 声称了 N 个参数却少内容行 → None，而不是悄悄少返回
+        let arg = lines.next()?;
+        result.push(arg.to_string());
     }
     Some(result)
 }
 ```
 
-> 📖 **设计思路**：简化版解析器——按 `\r\n` 分割，跳过长度行，取内容行。生产级解析器需要处理二进制数据和边界问题。
+> 📖 **设计思路**：简化版解析器——按 `\r\n` 分割，跳过长度行，取内容行。注意两个安全点：客户端声称的参数数必须封顶（否则会按对方声称的参数数量循环分配，把内存撑爆），数据不完整时要显式失败。生产级解析器需要处理二进制数据和边界问题。
 
 ---
 
@@ -141,9 +147,15 @@ async fn handle_client(
             Ok(0) => return,   // 连接关闭
             Ok(n) => {
                 let data = String::from_utf8_lossy(&buffer[..n]);
-                if let Some(cmd) = parse_resp(&data) {
-                    let response = execute(&cmd, &db);
-                    let _ = stream.write_all(response.as_bytes()).await;
+                match parse_resp(&data) {
+                    Some(cmd) => {
+                        let response = execute(&cmd, &db);
+                        let _ = stream.write_all(response.as_bytes()).await;
+                    }
+                    // 协议错误也要明确告诉客户端，而不是静默丢弃
+                    None => {
+                        let _ = stream.write_all(b"-ERR protocol error\r\n").await;
+                    }
                 }
             }
             Err(_) => return,
@@ -176,22 +188,31 @@ async fn main() {
 
 ## 完整代码
 
+> 💡 末尾附带针对 `parse_resp` 与 `execute` 的单元测试，`cargo test` 验证协议解析后再跑服务器。
+
 ```rust
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
+/// 信任边界：参数数是客户端声称的，必须封顶，
+/// 否则一条 `*100000000000\r\n` 就能逼服务器预分配巨量内存（DoS）。
+const MAX_ARGS: usize = 1024;
+
 fn parse_resp(data: &str) -> Option<Vec<String>> {
     let mut lines = data.split("\r\n");
     let first = lines.next()?;
     if !first.starts_with('*') { return None; }
     let count: usize = first[1..].parse().ok()?;
-    let mut result = Vec::with_capacity(count);
+    if count > MAX_ARGS { return None; }
+    let mut result = Vec::new();
     for _ in 0..count {
         let len_line = lines.next()?;
         if !len_line.starts_with('$') { return None; }
-        lines.next().map(|s| result.push(s.to_string()));
+        // 声称了 N 个参数却少内容行 → None，而不是悄悄少返回
+        let arg = lines.next()?;
+        result.push(arg.to_string());
     }
     Some(result)
 }
@@ -232,9 +253,15 @@ async fn handle_client(
             Ok(0) | Err(_) => return,
             Ok(n) => {
                 let data = String::from_utf8_lossy(&buffer[..n]);
-                if let Some(cmd) = parse_resp(&data) {
-                    let resp = execute(&cmd, &db);
-                    let _ = stream.write_all(resp.as_bytes()).await;
+                match parse_resp(&data) {
+                    Some(cmd) => {
+                        let resp = execute(&cmd, &db);
+                        let _ = stream.write_all(resp.as_bytes()).await;
+                    }
+                    // 协议错误也要明确告诉客户端，而不是静默丢弃
+                    None => {
+                        let _ = stream.write_all(b"-ERR protocol error\r\n").await;
+                    }
                 }
             }
         }
@@ -251,6 +278,50 @@ async fn main() {
         println!("Connected: {}", addr);
         let db = Arc::clone(&db);
         tokio::spawn(handle_client(stream, db));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_valid_resp() {
+        let req = "*1\r\n$4\r\nPING\r\n";
+        assert_eq!(parse_resp(req), Some(vec!["PING".to_string()]));
+
+        let req = "*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$5\r\nvalue\r\n";
+        assert_eq!(
+            parse_resp(req),
+            Some(vec!["SET".into(), "key".into(), "value".into()])
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_resp() {
+        assert_eq!(parse_resp("PING\r\n"), None);              // 不以 * 开头
+        assert_eq!(parse_resp("*2\r\n$3\r\nSET\r\n"), None);  // 声称 2 个，缺内容
+        assert_eq!(parse_resp("*\r\n"), None);                // 数字缺失
+    }
+
+    #[test]
+    fn rejects_arg_count_over_limit() {
+        // 客户端声称的参数数超过信任边界 → None（DoS 防护）
+        let req = format!("*{}\r\n", MAX_ARGS + 1);
+        assert_eq!(parse_resp(&req), None);
+    }
+
+    #[test]
+    fn execute_set_get_ping_and_unknown() {
+        let db = Arc::new(Mutex::new(HashMap::new()));
+        let v = |s: &str| s.split_whitespace().map(String::from).collect::<Vec<_>>();
+
+        assert_eq!(execute(&v("SET name rust"), &db), "+OK\r\n");
+        let got = execute(&v("GET name"), &db);
+        assert!(got.contains("rust"));
+        assert_eq!(execute(&v("GET missing"), &db), "$-1\r\n"); // 不存在
+        assert_eq!(execute(&v("PING"), &db), "+PONG\r\n");
+        assert_eq!(execute(&v("BOGUS"), &db), "-ERR unknown\r\n");
     }
 }
 ```

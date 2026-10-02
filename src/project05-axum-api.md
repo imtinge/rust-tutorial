@@ -2,7 +2,7 @@
 
 > **学习目标**
 > - 用 Axum 框架构建生产级 Web 服务器
-> - 实现路由、JSON API、查询参数、静态文件服务
+> - 实现路由、JSON API、查询参数
 > - 掌握 async Web 开发模式
 > - 理解 Rust Web 后端的技术栈选择
 >
@@ -12,7 +12,7 @@
 
 ## 项目概览
 
-> 💡 **比喻**：之前实战3的手写 HTTP 服务器就像用砖头自己搭房子——每块砖都得自己砌。Axum 是现成的框架——像用预制板建房，你只需要设计户型，框架帮你搞定承重、管道、电路。
+> **比喻**：之前实战3的手写 HTTP 服务器就像用砖头自己搭房子——每块砖都得自己砌。Axum 是现成的框架——像用预制板建房，你只需要设计户型，框架帮你搞定承重、管道、电路。
 
 ### 功能需求
 
@@ -43,11 +43,11 @@ cd axum_api
 `Cargo.toml`：
 ```toml
 [dependencies]
-axum = "0.7"
+axum = "0.8"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tower-http = { version = "0.5", features = ["fs", "trace"] }
+tower-http = { version = "0.7", features = ["fs", "trace"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ```
@@ -104,7 +104,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(homepage))
         .route("/about", get(about))
-        .route("/users/:id", get(user_info));
+        .route("/users/{id}", get(user_info));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
@@ -164,7 +164,7 @@ async fn main() {
     let db: Db = Arc::new(Mutex::new(Vec::new()));
     let app = Router::new()
         .route("/api/tasks", get(list_tasks).post(create_task))
-        .route("/api/tasks/:id", get(get_task).delete(delete_task))
+        .route("/api/tasks/{id}", get(get_task).delete(delete_task))
         .with_state(db);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     println!("API 服务器运行在 http://127.0.0.1:3000");
@@ -174,8 +174,11 @@ async fn main() {
 async fn get_task(
     axum::extract::State(db): axum::extract::State<Db>,
     Path(id): Path<u32>,
-) -> Json<Option<Task>> {
-    Json(db.lock().unwrap().iter().find(|t| t.id == id).cloned())
+) -> Result<Json<Task>, axum::http::StatusCode> {
+    // 查到 → 200 + JSON；查无 → 404（而不是 200 + null）
+    db.lock().unwrap().iter().find(|t| t.id == id).cloned()
+        .map(Json)
+        .ok_or(axum::http::StatusCode::NOT_FOUND)
 }
 
 async fn delete_task(
@@ -232,6 +235,7 @@ async fn main() {
         .route("/", get(homepage))
         .route("/api/tasks", get(list_tasks).post(create_task))
         .route("/api/tasks/page", get(list_paginated))
+        .fallback(not_found)  // 没有匹配到任何路由的请求，交给 not_found 返回 404
         .layer(TraceLayer::new_for_http())  // 请求日志
         .with_state(db);
 
@@ -241,7 +245,7 @@ async fn main() {
 }
 ```
 
-> 💡 **比喻**：中间件就像酒店的安检通道——每个请求进来都先过一道安检（日志记录），然后才到达目的地（处理函数）。`TraceLayer` 自动记录每个请求的方法、路径、状态码、耗时。
+> **比喻**：中间件就像酒店的安检通道——每个请求进来都先过一道安检（日志记录），然后才到达目的地（处理函数）。`TraceLayer` 自动记录每个请求的方法、路径、状态码、耗时。
 
 ---
 
@@ -257,7 +261,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tower_http::trace::TraceLayer;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 struct Task { id: u32, title: String, done: bool }
 
 #[derive(Deserialize)]
@@ -269,7 +273,7 @@ struct Pagination { page: Option<u32>, per_page: Option<u32> }
 type Db = Arc<Mutex<Vec<Task>>>;
 
 async fn homepage() -> &'static str {
-    "API 运行中。路由: GET /api/tasks, POST /api/tasks, GET /api/tasks/:id"
+    "API 运行中。路由: GET /api/tasks, POST /api/tasks, GET /api/tasks/{id}"
 }
 
 async fn list_tasks(State(db): State<Db>) -> Json<Vec<Task>> {
@@ -287,8 +291,11 @@ async fn create_task(
     (StatusCode::CREATED, Json(task))
 }
 
-async fn get_task(State(db): State<Db>, Path(id): Path<u32>) -> Json<Option<Task>> {
-    Json(db.lock().unwrap().iter().find(|t| t.id == id).cloned())
+async fn get_task(State(db): State<Db>, Path(id): Path<u32>) -> Result<Json<Task>, StatusCode> {
+    // 查到 → 200 + JSON；查无 → 404（而不是 200 + null）
+    db.lock().unwrap().iter().find(|t| t.id == id).cloned()
+        .map(Json)
+        .ok_or(StatusCode::NOT_FOUND)
 }
 
 async fn delete_task(State(db): State<Db>, Path(id): Path<u32>) -> &'static str {
@@ -298,6 +305,10 @@ async fn delete_task(State(db): State<Db>, Path(id): Path<u32>) -> &'static str 
 
 async fn list_paginated(Query(p): Query<Pagination>) -> String {
     format!("第 {} 页，每页 {} 条", p.page.unwrap_or(1), p.per_page.unwrap_or(10))
+}
+
+async fn not_found() -> (StatusCode, &'static str) {
+    (StatusCode::NOT_FOUND, "页面不存在")
 }
 
 #[tokio::main]
@@ -310,19 +321,69 @@ async fn main() {
     let app = Router::new()
         .route("/", get(homepage))
         .route("/api/tasks", get(list_tasks).post(create_task))
-        .route("/api/tasks/:id", get(get_task).delete(delete_task))
+        .route("/api/tasks/{id}", get(get_task).delete(delete_task))
         .route("/api/tasks/page", get(list_paginated))
+        .fallback(not_found)
         .layer(TraceLayer::new_for_http())
         .with_state(db);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     println!("Server running on http://127.0.0.1:3000");
     axum::serve(listener, app).await.unwrap();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn seed() -> Db {
+        Arc::new(Mutex::new(vec![
+            Task { id: 1, title: "学Rust".into(), done: false },
+        ]))
+    }
+
+    // `#[tokio::test]` 是 tokio 提供的异步测试属性：
+    // 加上它后测试函数可以写成 async fn，并在其中直接 .await
+    #[tokio::test]
+    async fn get_existing_and_missing() {
+        let db = seed();
+        // 不用 assert_eq! 比较整个 Result（Task 未实现 PartialEq）
+        match get_task(State(db.clone()), Path(1)).await {
+            Ok(Json(t)) => assert_eq!(t.title, "学Rust"),
+            Err(_) => panic!("#1 应该存在"),
+        }
+        // 查无 → 404，handler 不需要起服务器就能直接调用
+        assert!(matches!(
+            get_task(State(db), Path(42)).await,
+            Err(StatusCode::NOT_FOUND)
+        ));
+    }
+
+    #[tokio::test]
+    async fn pagination_uses_defaults() {
+        let s = list_paginated(Query(Pagination { page: None, per_page: None })).await;
+        assert_eq!(s, "第 1 页，每页 10 条");
+    }
+
+    #[test]
+    fn task_json_roundtrip() {
+        let t = Task { id: 7, title: "测试".into(), done: true };
+        let j = serde_json::to_string(&t).unwrap();
+        assert_eq!(j, r#"{"id":7,"title":"测试","done":true}"#);
+        let back: Task = serde_json::from_str(&j).unwrap();
+        assert_eq!(back.id, 7);
+    }
+}
 ```
 
 ---
 
 ## 运行与测试
+
+```bash
+cargo test
+```
+
+上面的测试直接调用 handler（不用真的起 HTTP 服务器）：查存在/不存在的任务、分页默认值、JSON 往返。
 
 ```bash
 cargo run
@@ -347,6 +408,9 @@ curl http://127.0.0.1:3000/api/tasks
 # 获取单个任务
 curl http://127.0.0.1:3000/api/tasks/1
 
+# 查不存在的任务 → 404 Not Found（不再是 200 + null）
+curl -i http://127.0.0.1:3000/api/tasks/999
+
 # 分页查询
 curl "http://127.0.0.1:3000/api/tasks/page?page=2&per_page=5"
 ```
@@ -368,7 +432,7 @@ curl "http://127.0.0.1:3000/api/tasks/page?page=2&per_page=5"
 - [ ] 服务器能启动并响应请求
 - [ ] GET /api/tasks 返回 JSON 任务列表
 - [ ] POST /api/tasks 能创建新任务
-- [ ] 路径参数 `/api/tasks/:id` 能正确提取
+- [ ] 路径参数 `/api/tasks/{id}` 能正确提取
 - [ ] 查询参数 `?page=2&per_page=5` 能正确解析
 - [ ] 日志中间件输出了请求信息
 - [ ] 代码没有 unsafe（除教学简化外）

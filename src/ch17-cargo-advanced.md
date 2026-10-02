@@ -1,4 +1,4 @@
-# 第16章 Cargo 进阶：从学习到生产
+# 第17章 Cargo 进阶：从学习到生产
 
 > **学习目标**
 > - 掌握工作空间（Workspace）组织多 crate 项目
@@ -10,15 +10,15 @@
 
 ---
 
-## 16.1 为什么需要 Cargo 进阶？
+## 17.1 为什么需要 Cargo 进阶？
 
 前面 15 章你写的都是"单个项目"。但当项目变大——比如一个 Web 服务带 CLI 工具带共享库——单 crate 就不够用了。
 
-> 💡 **比喻**：单 crate 就像一人小作坊——所有工具混在一个房间里。工作空间就像把作坊升级成工厂——车间（crate）分开，仓库（依赖）共享，流水线（构建）统一调度。
+> **比喻**：单 crate 就像一人小作坊——所有工具混在一个房间里。工作空间就像把作坊升级成工厂——车间（crate）分开，仓库（依赖）共享，流水线（构建）统一调度。
 
 ---
 
-## 16.2 工作空间（Workspace）
+## 17.2 工作空间（Workspace）
 
 > 📖 **术语解释 · Workspace**：多个 crate 的集合，共享一个 `Cargo.lock` 和 `target` 目录。适合"一个项目多个组件"的场景。
 
@@ -68,7 +68,7 @@ fn main() {
 
 ---
 
-## 16.3 Features：条件编译
+## 17.3 Features：条件编译
 
 > 📖 **术语解释 · Feature**：Cargo 的条件编译开关。用户安装你的 crate 时可以选装哪些功能——就像点奶茶选加料。
 
@@ -109,11 +109,11 @@ my_lib = "1.0"
 my_lib = { version = "1.0", features = ["json"] }
 ```
 
-> 💡 **比喻**：features 就像点奶茶——基础款（default）自带茶底，加珍珠（json feature）多 2 块，加芋泥加波波（premium）多 5 块。用户按需选，不用为一杯奶茶付全套的钱。
+> **比喻**：features 就像点奶茶——基础款（default）自带茶底，加珍珠（json feature）多 2 块，加芋泥加波波（premium）多 5 块。用户按需选，不用为一杯奶茶付全套的钱。
 
 ---
 
-## 16.4 发布到 crates.io
+## 17.4 发布到 crates.io
 
 ### 发布前检查
 
@@ -121,13 +121,13 @@ my_lib = { version = "1.0", features = ["json"] }
 [package]
 name = "my_lib"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "一句话描述你的库"
 license = "MIT"
 repository = "https://github.com/you/my_lib"
 ```
 
-> ⚠️ **新手坑**：`name`、`version`、`description`、`license` 四项缺一不可——没有它们 `cargo publish` 会直接拒绝。名字一旦发布就永久占用，发布前想好。
+> ⚠️ **新手坑**：`name`、`version` 在 `cargo new` 时已经自动生成；`description`、`license` **不是强制项**——缺了只给 warning，`cargo publish` 仍能成功——但强烈建议填写：crates.io 和 docs.rs 会展示描述与许可，没有它们别人很难判断你的库是做什么的、能不能用。注意：**已发布的版本号永久不可覆盖**，想改代码只能发新版本号。
 
 ### 发布流程
 
@@ -147,7 +147,7 @@ my_lib = "0.1"
 
 ---
 
-## 16.5 依赖管理进阶
+## 17.5 依赖管理进阶
 
 ### 各种依赖写法
 
@@ -179,12 +179,12 @@ cc = "1"
 
 ---
 
-## 16.6 常用 Cargo 命令速查（进阶版）
+## 17.6 常用 Cargo 命令速查（进阶版）
 
 ```bash
 cargo build --release      # 优化编译（发布用，快但编译慢）
 cargo doc --open           # 生成文档并在浏览器打开
-cargo install <crate>      # 安装二进制工具（如 cargo-edit）
+cargo install <crate>      # 安装二进制工具（如 cargo-watch：cargo watch -x run，改代码自动重跑；或 cargo-nextest：更快的测试运行器，用 cargo nextest run）
 cargo outdated             # 检查过期依赖（需 cargo-outdated）
 cargo audit                # 检查安全漏洞（需 cargo-audit）
 cargo workspace            # 没有这个命令——用 cargo build 在根目录即可
@@ -192,7 +192,7 @@ cargo workspace            # 没有这个命令——用 cargo build 在根目�
 
 ---
 
-## 16.7 课后练习
+## 17.7 课后练习
 
 ### 基础题
 
@@ -250,7 +250,7 @@ CLI 启用时：`math = { path = "../math", features = ["advanced"] }`。
 <details>
 <summary>参考答案要点</summary>
 
-必须的四项：`name`、`version`、`description`、`license`。
+`name`、`version` 已由 `cargo new` 生成；`description`、`license`、`repository` 虽不强制，但本题要求补齐，避免缺项警告。
 `cargo publish --dry-run` 会打包到 `target/package/`，检查：
 - 有没有漏掉的文件（`.gitignore` 的文件不会打包）
 - 有没有意外把敏感文件（密码、token）打进去
@@ -260,7 +260,7 @@ CLI 启用时：`math = { path = "../math", features = ["advanced"] }`。
 
 ---
 
-## 16.8 Mini Project：给 Todo 工具升级为工作空间
+## 17.8 Mini Project：给 Todo 工具升级为工作空间
 
 把实战 1 的 Todo CLI 拆成"库 + CLI"两个 crate，练习工作空间组织：
 
@@ -309,7 +309,7 @@ fn main() {
 
 > 📌 **要点**：把核心逻辑放进库 crate（`lib.rs`），CLI 只是薄薄一层入口——这是 Rust 项目的标准分层。库可以被其他 CLI、Web 服务、测试代码同时复用。还有个额外好处：实战 5 的 Axum 版 Todo 也能直接依赖 `todo-core`，一份逻辑三种用法。
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：workspace 多 crate 一锅端，features 开关按需编译。
 >
@@ -327,11 +327,11 @@ fn main() {
 - [ ] 我能用工作空间组织多个 crate
 - [ ] 我知道 workspace 成员之间如何互相引用
 - [ ] 我会用 `#[cfg(feature = "x")]` 做条件编译
-- [ ] 我知道发布 crate 需要哪些必填元数据
+- [ ] 我知道发布 crate 需要哪些元数据（name/version 自动生成，description/license 强烈建议）
 - [ ] 我会区分 `dependencies` / `dev-dependencies` / `build-dependencies`
 - [ ] 我理解语义化版本号（`"1"` vs `"=1.2.3"` vs `"~1.2"`）
 - [ ] 我完成了 Todo 工作空间 mini project
 
 ---
 
-> 🦀 **下一章预告**：第 17 章我们聊一个最时髦的方向——Rust 与 AI 生态：为什么"研究用 Python，生产看 Rust"，以及怎么用你已经掌握的 serde + reqwest 知识，写一个命令行 AI 问答助手。学到这里，你已能像生产环境工程师一样组织、发布、维护 Rust 项目——最后一站，出发！
+> 🦀 **下一章预告**：第 18 章我们聊一个最时髦的方向——Rust 与 AI 生态：为什么"研究用 Python，生产看 Rust"，以及怎么用你已经掌握的 serde + reqwest 知识，写一个命令行 AI 问答助手。学到这里，你已能像生产环境工程师一样组织、发布、维护 Rust 项目——最后一站，出发！

@@ -12,7 +12,7 @@
 
 ## 项目概览
 
-> 💡 **比喻**：文件爬虫就像一个勤劳的图书管理员——你告诉他"去3楼找所有含'Rust'的书"，他就一层层走、一本本翻，把结果列给你。
+> **比喻**：文件爬虫就像一个勤劳的图书管理员——你告诉他"去3楼找所有含'Rust'的书"，他就一层层走、一本本翻，把结果列给你。
 
 ### 功能需求
 
@@ -28,7 +28,7 @@
 |------|--------|---------------|
 | 第3章 | 所有权、借用 | 文件路径传递 |
 | 第6章 | Result、? | 文件操作错误处理 |
-| 第6章 | Vec、HashMap | 收集搜索结果 |
+| 第6章 | Vec | 收集文件列表与搜索结果 |
 | 第9章 | 迭代器 | 遍历文件、行处理 |
 | 第10章 | 多线程（可选） | 并行搜索加速 |
 
@@ -249,16 +249,16 @@ fn search(root: &Path, keyword: &str, ext: &str) -> SearchResult {
 }
 
 fn print_result(result: &SearchResult) {
-    println!("========================================");
-    println!(" 搜索关键词: \"{}\"", result.keyword);
-    println!(" 扫描文件数: {}", result.files_scanned);
-    println!(" 匹配总数:   {}", result.matches.len());
-    println!("========================================");
+    println!("================================");
+    println!("搜索关键词: \"{}\"", result.keyword);
+    println!("扫描文件数: {}", result.files_scanned);
+    println!("匹配数: {}", result.matches.len());
+    println!("================================");
     let mut current: Option<&PathBuf> = None;
     for m in &result.matches {
         if Some(&m.file) != current {
             current = Some(&m.file);
-            println!("\n--- {} ---", m.file.display());
+            println!("\n📄 {}", m.file.display());
         }
         println!("  L{}: {}", m.line_num, m.line_text);
     }
@@ -289,20 +289,22 @@ fn main() {
 
 ```bash
 $ cargo run -- src fn rs
+================================
+搜索关键词: "fn"
+扫描文件数: 1
+匹配数: 6
+================================
 
-========================================
- 搜索关键词: "fn"
- 扫描文件数: 2
- 匹配总数:   8
-========================================
-
---- src/main.rs ---
-  L5: fn walk_dir(dir: &Path, ext: &str, files: &mut Vec<PathBuf>) {
-  L15: fn search_file(path: &Path, keyword: &str, results: &mut Vec<Match>) {
-  L26: fn search(root: &Path, keyword: &str, ext: &str) -> SearchResult {
-  L35: fn print_result(result: &SearchResult) {
-  L48: fn main() {
+📄 src\main.rs
+  L19: fn walk_dir(dir: &Path, ext: &str, files: &mut Vec<PathBuf>) {
+  L33: fn search_file(path: &Path, keyword: &str, results: &mut Vec<Match>) {
+  L47: fn search(root: &Path, keyword: &str, ext: &str) -> SearchResult {
+  L63: fn print_result(result: &SearchResult) {
+  L80: fn main() {
+  L84: println!("示例: file_crawler src fn rs");
 ```
+
+> 💡 注意最后一条：关键词 `fn` 是**子串匹配**，连用法提示字符串里的 `file_crawler src fn rs` 也被搜出来了。换成更精确的正则匹配（挑战题 2）可以避免这种"误伤"。
 
 ---
 

@@ -11,7 +11,7 @@
 
 ## 项目概览
 
-> 💡 **比喻**：这个项目就像你亲手组装一辆自行车——结构体是车架，枚举是变速齿轮，集合是轮子，错误处理是刹车，模块系统是螺丝把各部件连起来。装完就能骑！
+> **比喻**：这个项目就像你亲手组装一辆自行车——结构体是车架，枚举是变速齿轮，集合是轮子，错误处理是刹车，模块系统是螺丝把各部件连起来。装完就能骑！
 
 ### 功能需求
 
@@ -208,6 +208,47 @@ fn print_usage() {
 
 ---
 
+## 第七步：给核心逻辑写测试
+
+还记得第 12 章吗？**纯函数最值得测**。`next_id` 和 `parse_command` 不碰文件、不打印，几行测试就能守住核心规则。把下面模块加在 `main.rs` 末尾，`cargo test` 即可运行：
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(parts: &[&str]) -> Vec<String> {
+        parts.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn next_id_starts_at_1_and_skips_gaps() {
+        assert_eq!(next_id(&[]), 1);
+        let mk = |id| Task { id, title: String::new(), done: false };
+        assert_eq!(next_id(&[mk(1), mk(5), mk(2)]), 6); // 取最大 +1，不取长度 +1
+    }
+
+    #[test]
+    fn parses_known_commands() {
+        assert!(matches!(
+            parse_command(&args(&["todo", "add", "学", "Rust"])),
+            Some(Command::Add(t)) if t == "学 Rust"
+        ));
+        assert!(matches!(parse_command(&args(&["todo", "list"])), Some(Command::List)));
+        assert!(matches!(parse_command(&args(&["todo", "done", "3"])), Some(Command::Done(3))));
+    }
+
+    #[test]
+    fn rejects_bad_input() {
+        assert!(parse_command(&args(&["todo"])).is_none());
+        assert!(parse_command(&args(&["todo", "frobnicate"])).is_none());
+        assert!(parse_command(&args(&["todo", "done", "abc"])).is_none()); // id 解析失败
+    }
+}
+```
+
+> 💡 **说明**：`use super::*;` 把父模块（`main.rs`）的私有函数也引进来——单元测试可以测私有项。`run` 里的 `Add` 分支会写 `todo.json`，想测它得先隔离文件路径，留给你做进阶练习。
+
 ## 完整代码
 
 把以上代码拼到一起就是完整的 `src/main.rs`：
@@ -313,6 +354,39 @@ fn main() {
     match parse_command(&args) {
         Some(cmd) => run(cmd, &mut tasks),
         None => print_usage(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(parts: &[&str]) -> Vec<String> {
+        parts.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn next_id_starts_at_1_and_skips_gaps() {
+        assert_eq!(next_id(&[]), 1);
+        let mk = |id| Task { id, title: String::new(), done: false };
+        assert_eq!(next_id(&[mk(1), mk(5), mk(2)]), 6);
+    }
+
+    #[test]
+    fn parses_known_commands() {
+        assert!(matches!(
+            parse_command(&args(&["todo", "add", "学", "Rust"])),
+            Some(Command::Add(t)) if t == "学 Rust"
+        ));
+        assert!(matches!(parse_command(&args(&["todo", "list"])), Some(Command::List)));
+        assert!(matches!(parse_command(&args(&["todo", "done", "3"])), Some(Command::Done(3))));
+    }
+
+    #[test]
+    fn rejects_bad_input() {
+        assert!(parse_command(&args(&["todo"])).is_none());
+        assert!(parse_command(&args(&["todo", "frobnicate"])).is_none());
+        assert!(parse_command(&args(&["todo", "done", "abc"])).is_none());
     }
 }
 ```

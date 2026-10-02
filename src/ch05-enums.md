@@ -15,6 +15,7 @@
 先看一段代码，猜猜它在做什么：
 
 ```rust
+// 📎 片段 1/2：先定义订单状态枚举
 enum OrderStatus {
     Processing,               // 无数据
     Delivering(String),       // 携带配送员名字
@@ -24,17 +25,42 @@ enum OrderStatus {
 ```
 
 ```rust
+// 📎 片段 2/2：创建一个枚举值
 let s = OrderStatus::Delivering(String::from("小王"));
 // 接下来用 match 来处理不同状态
 ```
 
+<details>
+<summary>👉 点开：查看「定义枚举 + 创建枚举值」完整可运行版（✅）</summary>
+
+```rust
+enum OrderStatus {
+    Processing,             // 无数据
+    Delivering(String),     // 携带配送员名字
+    Delivered,              // 无数据
+    Cancelled(String),      // 携带取消原因
+}
+
+fn main() {
+    let s = OrderStatus::Delivering(String::from("小王"));
+    // 接下来用 match 来处理不同状态
+    match s {
+        OrderStatus::Delivering(name) => println!("配送员是 {}", name),
+        _ => {}
+    }
+}
+```
+
+</details>
+
 > 📖 **术语解释 · 枚举（Enum）**：一种可以表示"多种可能值之一"的类型。Rust 的枚举比 C/Java 的强大得多——每个变体可以携带不同类型和数量的数据。就像一个快递柜，每个格子可以放不同形状的包裹。
 
-> 💡 **比喻**：枚举就像奶茶店的订单状态——可能是"制作中"、"配送中"、"已送达"、"已取消"。每个状态是互斥的，你的订单只能处于其中一种状态。
+> **比喻**：枚举就像奶茶店的订单状态——可能是"制作中"、"配送中"、"已送达"、"已取消"。每个状态是互斥的，你的订单只能处于其中一种状态。
 
 ### 带数据的枚举 vs 结构体
 
 ```rust
+// 📎 片段 1/2：定义带多种数据形态的枚举
 enum Message {
     Quit,                        // 无数据
     Move { x: i32, y: i32 },     // 像结构体一样带具名字段
@@ -44,13 +70,37 @@ enum Message {
 ```
 
 ```rust
+// 📎 片段 2/2：创建不同变体
 let msg = Message::Write(String::from("hi"));
 let pos = Message::Move { x: 10, y: 20 };
 ```
 
+<details>
+<summary>👉 点开：查看「Message 枚举 + 创建变体」完整可运行版（✅）</summary>
+
+```rust
+enum Message {
+    Quit,                        // 无数据
+    Move { x: i32, y: i32 },     // 像结构体一样带具名字段
+    Write(String),               // 带一个字符串
+    ChangeColor(i32, i32, i32),  // 带三个整数
+}
+
+fn main() {
+    let msg = Message::Write(String::from("hi"));
+    let pos = Message::Move { x: 10, y: 20 };
+    println!("msg 是 Write: {}", matches!(msg, Message::Write(_)));
+    println!("pos 是 Move: {}", matches!(pos, Message::Move { .. }));
+}
+```
+
+</details>
+
+> 💡 **提示**：`matches!(值, 模式)` 是标准库宏——值与模式匹配时返回 `true`，否则返回 `false`，可以快速判断"某个值是不是某个变体"。
+
 枚举的每个变体可以携带不同类型的数据，这是结构体做不到的。
 
-> 💡 **比喻**：枚举就像一个"万能快递箱"——每个箱子里装的东西可以完全不同，但它们都属于同一个品牌（同一个枚举类型）。结构体则是"固定模板"——每个箱子的格子都一样。
+> **比喻**：枚举就像一个"万能快递箱"——每个箱子里装的东西可以完全不同，但它们都属于同一个品牌（同一个枚举类型）。结构体则是"固定模板"——每个箱子的格子都一样。
 
 ---
 
@@ -59,6 +109,7 @@ let pos = Message::Move { x: 10, y: 20 };
 先看一个函数——返回 `Option<String>`：
 
 ```rust
+// 📎 片段 1/2：函数返回 Option
 fn find_user(id: u32) -> Option<String> {
     if id == 1 { Some(String::from("Alice")) }
     else { None }
@@ -66,15 +117,40 @@ fn find_user(id: u32) -> Option<String> {
 ```
 
 ```rust
+// 📎 片段 2/2：调用并用 match 处理
 match find_user(1) {
     Some(name) => println!("找到了: {}", name),
     None => println!("用户不存在"),
 }
 ```
 
+<details>
+<summary>👉 点开：查看「find_user + match」完整可运行版（✅）</summary>
+
+```rust
+fn find_user(id: u32) -> Option<String> {
+    if id == 1 {
+        Some(String::from("Alice"))
+    } else {
+        None
+    }
+}
+
+fn main() {
+    match find_user(1) {
+        Some(name) => println!("找到了: {}", name),
+        None => println!("用户不存在"),
+    }
+}
+```
+
+</details>
+
 Rust 里没有 `null`！取而代之的是 `Option` 枚举。
 
 > ⚠️ **新手坑**：从 Python/JS 来的人常想直接用 `find_user(1)` 当字符串用——不行！`Option<String>` 不是 `String`，必须先 `match` 或 `unwrap`。
+
+> 🐍 **Python/JS 类比**：`Option<T>` 就是把 Python 的 `None`、JS 的 `null/undefined` 写进了类型签名里。Python 的函数也可能返回 `None`，但签名不告诉你，忘了判断就 `AttributeError: 'NoneType' object has no attribute ...`；Rust 的 `-> Option<String>` 让编译器替你记着这事——不处理 `None` 分支根本编译不过。写法对照：Python 的 `if user is not None:`、JS 的 `if (user !== null)`，在 Rust 里常写成 `if let Some(name) = find_user(1) { ... }`。
 
 ---
 
@@ -93,7 +169,7 @@ fn describe(status: &OrderStatus) -> &str {
 }
 ```
 
-> 💡 **比喻**：`match` 就像一个严格的安检员——你所有可能的情况都得过一遍安检，少一个都不行。这保证了你不会遗漏处理某个分支。
+> **比喻**：`match` 就像一个严格的安检员——你所有可能的情况都得过一遍安检，少一个都不行。这保证了你不会遗漏处理某个分支。
 
 ### match 绑定值
 
@@ -146,7 +222,7 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：`if let` 就像你只等一个人的快递——来了就拿走，不来就算了。`match` 则是等所有快递——每个单号都要处理。
+> **比喻**：`if let` 就像你只等一个人的快递——来了就拿走，不来就算了。`match` 则是等所有快递——每个单号都要处理。
 
 ---
 
@@ -170,6 +246,7 @@ fn main() {
 先看一个返回 `Result` 的函数：
 
 ```rust
+// 📎 片段 1/2：返回 Result 的函数
 use std::num::ParseIntError;
 fn parse_num(s: &str) -> Result<i32, ParseIntError> {
     s.parse::<i32>()
@@ -177,11 +254,32 @@ fn parse_num(s: &str) -> Result<i32, ParseIntError> {
 ```
 
 ```rust
+// 📎 片段 2/2：调用它
 match parse_num("42") {
     Ok(n) => println!("成功: {}", n),
     Err(e) => println!("失败: {}", e),
 }
 ```
+
+<details>
+<summary>👉 点开：parse_num 完整可运行版（✅）</summary>
+
+```rust
+use std::num::ParseIntError;
+
+fn parse_num(s: &str) -> Result<i32, ParseIntError> {
+    s.parse::<i32>()
+}
+
+fn main() {
+    match parse_num("42") {
+        Ok(n) => println!("成功: {}", n),
+        Err(e) => println!("失败: {}", e),
+    }
+}
+```
+
+</details>
 
 > 📖 **术语解释 · Result<T, E>**：表示操作可能成功也可能失败的类型。`Ok(value)` 表示成功，`Err(error)` 表示失败。这是 Rust 错误处理的核心。
 
@@ -199,7 +297,7 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：`?` 就像快递签收时"有问题就退回"——如果解析出错，直接把错误抛给调用者，不用自己写 `match`。代码简洁很多。
+> **比喻**：`?` 就像快递签收时"有问题就退回"——如果解析出错，直接把错误抛给调用者，不用自己写 `match`。代码简洁很多。
 
 > ⚠️ **新手坑**：`?` 只能在返回 `Result` 或 `Option` 的函数里用。在 `main` 里直接用会报错（除非 `main` 本身返回 `Result`）。
 
@@ -232,7 +330,7 @@ fn main() {
 
 ### 进阶题
 
-**2.** 写一个函数 `divide(a: f64, b: f64) -> Result<f64, String>`，除数为 0 时返回 `Err("除数不能为零")`，否则返回 `Ok(商)`。在 `main` 中用 `match` 处理。
+**2.** 写一个函数 `divide(a: f64, b: f64) -> Result<f64, String>`，除数为 0 时返回 `Err(String::from("除数不能为零"))`，否则返回 `Ok(商)`。在 `main` 中用 `match` 处理。
 
 <details>
 <summary>参考答案要点</summary>
@@ -302,6 +400,7 @@ fn main() {
 用枚举和 `match` 实现一个红绿灯状态机：
 
 ```rust
+// 📎 片段 1/2：枚举与方法
 enum Light { Red, Yellow, Green }
 impl Light {
     fn next(&self) -> Light {
@@ -318,6 +417,7 @@ impl Light {
 ```
 
 ```rust
+// 📎 片段 2/2：跑 6 轮
 fn main() {
     let mut light = Light::Red;
     for _ in 0..6 {
@@ -328,9 +428,40 @@ fn main() {
 }
 ```
 
+<details>
+<summary>👉 点开：红绿灯状态机完整可运行版（✅）</summary>
+
+```rust
+enum Light { Red, Yellow, Green }
+
+impl Light {
+    fn next(&self) -> Light {
+        match self {
+            Light::Red => Light::Green,
+            Light::Green => Light::Yellow,
+            Light::Yellow => Light::Red,
+        }
+    }
+    fn name(&self) -> &str {
+        match self { Light::Red => "红灯", Light::Yellow => "黄灯", Light::Green => "绿灯" }
+    }
+}
+
+fn main() {
+    let mut light = Light::Red;
+    for _ in 0..6 {
+        print!("{} -> ", light.name());
+        light = light.next();
+    }
+    println!("...");
+}
+```
+
+</details>
+
 > 📌 **要点**：`match` 的穷尽性保证了你永远不会漏掉一个状态。如果以后加了新灯色（比如 `Blue`），编译器会强制你在所有 `match` 里处理它。
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：enum 表达"多种可能"，match 保证"每种都处理"。
 >

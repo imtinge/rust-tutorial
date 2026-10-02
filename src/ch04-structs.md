@@ -15,6 +15,7 @@
 先看一段代码，猜猜它在做什么：
 
 ```rust
+// 📎 片段 1/2：先定义 MilkTea 结构体
 struct MilkTea {
     name: String,
     price: f64,
@@ -25,6 +26,7 @@ struct MilkTea {
 这就是一个结构体——把三个相关字段（名字、价格、是否无糖）打包在一起。现在来创建一个实例：
 
 ```rust
+// 📎 片段 2/2：创建实例并使用字段
 fn main() {
     let drink = MilkTea {
         name: String::from("珍珠奶茶"),
@@ -35,9 +37,31 @@ fn main() {
 }
 ```
 
+<details>
+<summary>👉 点开：查看「定义结构体 + 创建实例」完整可运行版（✅）</summary>
+
+```rust
+struct MilkTea {
+    name: String,
+    price: f64,
+    sugar_free: bool,
+}
+
+fn main() {
+    let drink = MilkTea {
+        name: String::from("珍珠奶茶"),
+        price: 15.0,
+        sugar_free: false,
+    };
+    println!("{} 价格 {} 元", drink.name, drink.price);
+}
+```
+
+</details>
+
 > 📖 **术语解释 · 结构体（Struct）**：把多个相关字段打包到一起的自定义数据类型。就像你设计一张"员工信息表"模板——姓名、年龄、职位都是表上的字段，每个员工填一张表就是一个结构体实例。
 
-> 💡 **比喻**：结构体就像奶茶店的菜单模板——名字、价格、是否含糖是字段，每一杯具体的奶茶就是一个实例。`珍珠奶茶` 是一个实例，`芋泥波波` 也是一个实例。
+> **比喻**：结构体就像奶茶店的菜单模板——名字、价格、是否含糖是字段，每一杯具体的奶茶就是一个实例。`珍珠奶茶` 是一个实例，`芋泥波波` 也是一个实例。
 
 > ⚠️ **新手坑**：结构体字段默认是**不可变**的。想改字段值？需要把整个实例声明为 `mut`——不能只让某个字段可变。
 
@@ -50,6 +74,7 @@ fn main() {
 当变量名和字段名一样时，可以简写：
 
 ```rust
+// 📎 片段 1/2：字段简写（MilkTea 定义见 4.1 节）
 fn main() {
     let name = String::from("珍珠奶茶");
     let drink = MilkTea { name, price: 15.0, sugar_free: false };
@@ -58,11 +83,31 @@ fn main() {
 }
 ```
 
+<details>
+<summary>👉 点开：字段简写完整可运行版（✅ 片段 2/2）</summary>
+
+```rust
+struct MilkTea {
+    name: String,
+    price: f64,
+    sugar_free: bool,
+}
+
+fn main() {
+    let name = String::from("珍珠奶茶");
+    let drink = MilkTea { name, price: 15.0, sugar_free: false };
+    println!("{}", drink.name);
+}
+```
+
+</details>
+
 ### 更新语法
 
 先有一个实例，再基于它创建一个只改一个字段的新实例：
 
 ```rust
+// 📎 片段 1/2：先有一个 original 实例
 fn main() {
     let original = MilkTea {
         name: String::from("珍珠奶茶"),
@@ -71,6 +116,7 @@ fn main() {
 ```
 
 ```rust
+// 📎 片段 2/2：基于 original 改一个字段
     let no_sugar = MilkTea {
         sugar_free: true,
         ..original // 其余字段照搬
@@ -79,7 +125,33 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：更新语法就像你在奶茶店说"和刚才那杯一样，但换成无糖的"——其他参数照搬，只改你需要变的那一项。
+<details>
+<summary>👉 点开：查看「更新语法」完整可运行版（✅）</summary>
+
+```rust
+struct MilkTea {
+    name: String,
+    price: f64,
+    sugar_free: bool,
+}
+
+fn main() {
+    let original = MilkTea {
+        name: String::from("珍珠奶茶"),
+        price: 15.0,
+        sugar_free: false,
+    };
+    let no_sugar = MilkTea {
+        sugar_free: true,
+        ..original // 其余字段照搬
+    };
+    println!("{} {}", no_sugar.name, no_sugar.sugar_free);
+}
+```
+
+</details>
+
+> **比喻**：更新语法就像你在奶茶店说"和刚才那杯一样，但换成无糖的"——其他参数照搬，只改你需要变的那一项。
 
 ---
 
@@ -100,7 +172,7 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：元组结构体就像只有几号位的储物柜——你不需要给每个格子起名字，只要知道 1 号柜、2 号柜就行。
+> **比喻**：元组结构体就像只有几号位的储物柜——你不需要给每个格子起名字，只要知道 1 号柜、2 号柜就行。
 
 ### 单元结构体
 
@@ -125,11 +197,15 @@ fn main() {
 先定义结构体，再在 `impl` 块里写方法：
 
 ```rust
+// 📎 片段 1/3：先定义结构体
 #[derive(Debug)]
 struct Rectangle { width: f64, height: f64 }
 ```
 
+> 📖 **术语解释 · #[derive(Debug)]**：`derive`（派生）让编译器**自动实现**括号里的 Trait。`Debug` 决定 `{:?}` 打印格式——加了它，`println!("{:?}", r)` 就能直接打印结构体。后面还会见到 `Clone`（克隆）、`PartialEq`（可比较）等，4.5 节会系统讲。
+
 ```rust
+// 📎 片段 2/3：在 impl 块里定义方法
 impl Rectangle {
     fn area(&self) -> f64 { self.width * self.height }
     fn scale(&mut self, f: f64) {
@@ -141,6 +217,7 @@ impl Rectangle {
 现在用一下这些方法：
 
 ```rust
+// 📎 片段 3/3：创建实例、调用方法
 fn main() {
     let mut r = Rectangle { width: 3.0, height: 4.0 };
     println!("面积: {}", r.area());  // 12
@@ -149,11 +226,42 @@ fn main() {
 }
 ```
 
+<details>
+<summary>👉 点开：查看「结构体 + impl 方法 + main」完整可运行版（✅）</summary>
+
+```rust
+#[derive(Debug)]
+struct Rectangle {
+    width: f64,
+    height: f64,
+}
+
+impl Rectangle {
+    fn area(&self) -> f64 {
+        self.width * self.height
+    }
+    fn scale(&mut self, f: f64) {
+        self.width *= f;
+        self.height *= f;
+    }
+}
+
+fn main() {
+    let mut r = Rectangle { width: 3.0, height: 4.0 };
+    println!("面积: {}", r.area()); // 12
+    r.scale(2.0);
+    println!("{:?}", r); // Rectangle { width: 6.0, height: 8.0 }
+}
+```
+
+</details>
+
 > 📖 **术语解释 · impl 块**：`impl` 是 implementation 的缩写，`impl 结构体名 { ... }` 块里定义的方法和关联函数都属于这个结构体。就像奶茶店的操作手册——所有关于这杯奶茶的操作都写在手册里。
 
 ### 关联函数（Associated Function）
 
 ```rust
+// 📎 片段 1/2：在已有 impl 块里再加一个关联函数
 impl Rectangle {
     fn square(size: f64) -> Rectangle {
         Rectangle { width: size, height: size }
@@ -162,11 +270,38 @@ impl Rectangle {
 ```
 
 ```rust
+// 📎 片段 2/2：用 :: 调用关联函数
 fn main() {
     let sq = Rectangle::square(5.0); // 用 :: 调用
     println!("面积: {}", sq.area());  // 25
 }
 ```
+
+<details>
+<summary>👉 点开：查看「关联函数 square」完整可运行版（✅）</summary>
+
+```rust
+struct Rectangle {
+    width: f64,
+    height: f64,
+}
+
+impl Rectangle {
+    fn area(&self) -> f64 {
+        self.width * self.height
+    }
+    fn square(size: f64) -> Rectangle {
+        Rectangle { width: size, height: size }
+    }
+}
+
+fn main() {
+    let sq = Rectangle::square(5.0); // 用 :: 调用
+    println!("面积: {}", sq.area()); // 25
+}
+```
+
+</details>
 
 > 📖 **术语解释 · 关联函数**：不以 `self` 为参数的函数，类似其他语言的"静态方法"或"构造函数"。没有实例也能调用。
 
@@ -202,8 +337,11 @@ Rust 提供了 `#[derive]` 属性，自动实现常用 Trait——不用手写�
 | `Clone` | 允许调用 `.clone()` 深拷贝 |
 | `Copy` | 赋值时自动拷贝（需所有字段都是 Copy） |
 | `PartialEq` | 允许用 `==` 和 `!=` 比较 |
-| `Hash` | 允许用作 HashMap 的 Key |
+| `Eq` | 标记"比较永远成立、没有不等价特例"（配合 `PartialEq`；`f64` 等不能用） |
+| `Hash` | 计算哈希值；配合 `Eq + PartialEq` 一起派生后才能用作 HashMap 的 Key |
 | `Default` | 提供默认值 `User::default()` |
+
+> 📌 **注意**：想把结构体当 `HashMap` 的键，要求 `K: Eq + Hash`——`Hash` 和 `Eq`（以及它依赖的 `PartialEq`）要一起派生，只派生一个 `Hash` 不够。
 
 > ⚠️ **新手坑**：`String` 类型的字段不能 `Copy`（因为 `String` 不是 Copy 类型），所以含 `String` 字段的结构体不能 `#[derive(Copy)]`。想复制就用 `Clone`。
 
@@ -306,23 +444,31 @@ fn main() {
 用结构体和方法写一个学生成绩追踪器：
 
 ```rust
+// 📎 片段 1/2：定义 Student 结构体和方法
 struct Student {
     name: String,
-    scores: Vec<f64>,
+    scores: Vec<f64>, // Vec<T>：长度可变的数组，第 6 章细讲，这里先照抄
 }
 impl Student {
     fn new(name: &str) -> Student {
-        Student { name: String::from(name), scores: vec![] }
+        Student { name: String::from(name), scores: vec![] } // vec![]：空数组
     }
     fn add_score(&mut self, s: f64) { self.scores.push(s); }
     fn average(&self) -> f64 {
-        if self.scores.is_empty() { 0.0 }
-        else { self.scores.iter().sum::<f64>() / self.scores.len() as f64 }
+        if self.scores.is_empty() { return 0.0; }
+        // len() 是 usize（第 3 章讲过），f64 / usize 不能直接除，
+        // 用 as 把类型转成 f64
+        let mut total = 0.0;
+        for score in &self.scores { total += score; }
+        total / self.scores.len() as f64
     }
 }
 ```
 
+> 📖 **术语解释 · `as` 类型转换**：`值 as 类型` 做**基础数值类型间的转换**，如 `len as f64`、`x as i32`。注意两点：①浮点转整型会**直接截断小数**（`3.9 as i32` 得 `3`，不是四舍五入）；②大类型转小类型会**截断溢出**（`300i32 as u8` 得 `44`），编译器不拦你。要"安全转换"用第 10 章的 `try_from`。
+
 ```rust
+// 📎 片段 2/2：使用 Student
 fn main() {
     let mut s = Student::new("小明");
     s.add_score(85.0);
@@ -332,9 +478,47 @@ fn main() {
 }
 ```
 
+<details>
+<summary>👉 点开：查看「学生成绩追踪器」完整可运行版（✅）</summary>
+
+```rust
+struct Student {
+    name: String,
+    scores: Vec<f64>,
+}
+impl Student {
+    fn new(name: &str) -> Student {
+        Student { name: String::from(name), scores: vec![] }
+    }
+    fn add_score(&mut self, s: f64) {
+        self.scores.push(s)
+    }
+    fn average(&self) -> f64 {
+        if self.scores.is_empty() {
+            return 0.0;
+        }
+        let mut total = 0.0;
+        for score in &self.scores {
+            total += score;
+        }
+        total / self.scores.len() as f64
+    }
+}
+
+fn main() {
+    let mut s = Student::new("小明");
+    s.add_score(85.0);
+    s.add_score(92.0);
+    s.add_score(78.0);
+    println!("{} 平均分: {:.1}", s.name, s.average());
+}
+```
+
+</details>
+
 > 📌 **要点**：关联函数 `new` 做"构造函数"，方法 `add_score`/`average` 操作实例。这是 Rust 中最常见的结构体使用模式。
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：结构体是给数据定的"简历模板"，`impl` 给它装上方法。
 >

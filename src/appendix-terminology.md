@@ -99,7 +99,21 @@
 | 线程安全的 | thread-safe | Arc 是，Rc 不是 |
 | 调度器 | scheduler | tokio 决定哪个任务先跑的"排班表" |
 
-## 九、测试与工程（第11、16章）
+## 九、异步编程（第11章）
+
+| 中文 | 英文 | 一句话解释 |
+|------|------|-----------|
+| 异步 | async | 等待时让出线程、一个线程照应海量任务 |
+| 异步任务 | task | 运行时调度的轻量级单位（不是 OS 线程） |
+| Future（不译，旧译"期物"） | Future | "将来才能取货的小票"，惰性，被 poll 才执行 |
+| 轮询 | poll | 运行时推进 Future 的动作 |
+| 运行时 | runtime | executor + reactor：任务调度与 IO 事件通知 |
+| 执行器 | executor | 决定 poll 哪个任务的组件 |
+| 反应器 | reactor | 监听 IO/定时器事件、唤醒等待中的任务 |
+| 并发 | concurrency | 同时应对多件事（交替推进，单核也行） |
+| 并行 | parallelism | 同时执行多件事（需要多核） |
+
+## 十、测试与工程（第12、17章）
 
 | 中文 | 英文 | 一句话解释 |
 |------|------|-----------|
@@ -110,7 +124,7 @@
 | 条件编译 | conditional compilation | `#[cfg(feature = "x")]` |
 | 语义化版本 | semantic versioning | `1.2.3` = 主版本.次版本.修订号 |
 
-## 十、Unsafe 与应用方向（第12-17章）
+## 十一、Unsafe 与应用方向（第13-18章）
 
 | 中文 | 英文 | 一句话解释 |
 |------|------|-----------|
@@ -124,5 +138,9 @@
 | WebAssembly | WASM | Rust 编译进浏览器的字节码 |
 | 推理 | inference | 用训练好的模型算答案（生产阶段） |
 | 训练 | training | 教模型学东西（研究阶段） |
+| 路由器 | Router | axum 中"路径 → 处理函数"的分发表 |
+| 处理函数 | Handler | 处理一个请求、返回响应的 async fn |
+| 提取器 | Extractor | 从请求中取出路径参数/Body 的类型，如 `Path<T>`、`Json<T>` |
+| 中间件 | middleware | 在 Handler 前后统一执行的逻辑（日志、鉴权、CORS） |
 
 > 💡 **技巧**：看到不认识的英文术语，先来这张表扫一眼；表里没有的，直接在 [官方术语列表](https://doc.rust-lang.org/std/index.html#Modules) 或 cheats.rs 里搜。

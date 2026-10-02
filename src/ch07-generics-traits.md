@@ -15,19 +15,41 @@
 先看一段代码——一个函数能比较任意类型：
 
 ```rust
+// 📎 片段 1/2：泛型函数定义
 fn max<T: PartialOrd>(a: T, b: T) -> T {
     if a > b { a } else { b }
 }
 ```
 
 ```rust
+// 📎 片段 2/2：用不同类型调用
 println!("{}", max(3, 7));       // 7 (i32)
 println!("{}", max(3.14, 2.71)); // 3.14 (f64)
 ```
 
+<details>
+<summary>👉 点开：查看「泛型 max 函数」完整可运行版（✅）</summary>
+
+```rust
+fn max<T: PartialOrd>(a: T, b: T) -> T {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+fn main() {
+    println!("{}", max(3, 7)); // 7 (i32)
+    println!("{}", max(3.14, 2.71)); // 3.14 (f64)
+}
+```
+
+</details>
+
 > 📖 **术语解释 · 泛型（Generics）**：让函数或结构体不绑死在某个具体类型上，而是"泛化"为任意类型。相当于 TypeScript 的 `<T>` 或 Java 的 `Generics`。
 
-> 💡 **比喻**：泛型就像万能插座——不管你插什么型号的插头（类型），只要符合规范（Trait 约束），都能充电。不用为每种插头单独造一个插座。
+> **比喻**：泛型就像万能插座——不管你插什么型号的插头（类型），只要符合规范（Trait 约束），都能充电。不用为每种插头单独造一个插座。
 
 > `T: PartialOrd` 是 Trait 约束——告诉编译器 `T` 必须支持比较大小。没有这个约束，`a > b` 编译不过。
 
@@ -58,7 +80,7 @@ fn main() {
 }
 ```
 
-> ⚠️ **新手坑**：泛型类型参数通常用单个大写字母（T、K、V），但这只是惯例不是规定。泛型在编译时会**单态化**（monomorphization）——编译器为每种实际使用的类型生成一份具体代码，所以运行时零开销。
+> 💡 **提示**：泛型类型参数通常用单个大写字母（T、K、V），但这只是惯例不是规定。泛型在编译时会**单态化**（monomorphization）——编译器为每种实际使用的类型生成一份具体代码，所以运行时零开销。
 
 ---
 
@@ -67,6 +89,7 @@ fn main() {
 先看一段代码——定义 Trait 并实现：
 
 ```rust
+// 📎 片段 1/2：定义 Trait 并为 Chinese 实现
 trait Greet {
     fn say_hello(&self) -> String;
 }
@@ -77,13 +100,36 @@ impl Greet for Chinese {
 ```
 
 ```rust
+// 📎 片段 2/2：创建实例、调用 trait 方法
 let c = Chinese;
 println!("{}", c.say_hello()); // 你好！
 ```
 
+<details>
+<summary>👉 点开：查看「Greet Trait 定义与实现」完整可运行版（✅）</summary>
+
+```rust
+trait Greet {
+    fn say_hello(&self) -> String;
+}
+struct Chinese;
+impl Greet for Chinese {
+    fn say_hello(&self) -> String {
+        String::from("你好！")
+    }
+}
+
+fn main() {
+    let c = Chinese;
+    println!("{}", c.say_hello()); // 你好！
+}
+```
+
+</details>
+
 > 📖 **术语解释 · Trait**：定义一组方法签名，类型通过 `impl` 来实现这些方法。相当于其他语言的 Interface（接口）。Trait 描述的是"能做什么"，不关心"是什么"。
 
-> 💡 **比喻**：Trait 就像考驾照——不管你开的是小汽车、卡车还是公交车，只要你有驾照（实现了 Trait），就能上路。Trait 定义了"会开车"这个能力，具体开什么车不重要。
+> **比喻**：Trait 就像考驾照——不管你开的是小汽车、卡车还是公交车，只要你有驾照（实现了 Trait），就能上路。Trait 定义了"会开车"这个能力，具体开什么车不重要。
 
 ### 默认方法
 
@@ -145,7 +191,7 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：Trait 约束就像招工要求——"会开车 + 会英语"才录用。`T: Debug + Clone` 就是要求 `T` 既能调试打印又能克隆。
+> **比喻**：Trait 约束就像招工要求——"会开车 + 会英语"才录用。`T: Debug + Clone` 就是要求 `T` 既能调试打印又能克隆。
 
 ---
 
@@ -188,6 +234,7 @@ fn main() {
 ## 7.5 impl Trait：更简洁的语法
 
 ```rust
+// 📎 片段：Shape / Circle 的定义见上方 7.4 节
 // 返回实现了 Trait 的类型
 fn make_shape() -> impl Shape {
     Circle { r: 1.0 }
@@ -203,6 +250,38 @@ fn main() {
     print_area(&s);
 }
 ```
+
+<details>
+<summary>👉 点开：impl Trait 完整可运行版（✅）</summary>
+
+```rust
+trait Shape {
+    fn area(&self) -> f64;
+}
+
+struct Circle { r: f64 }
+
+impl Shape for Circle {
+    fn area(&self) -> f64 {
+        3.14159 * self.r * self.r
+    }
+}
+
+fn make_shape() -> impl Shape {
+    Circle { r: 1.0 }
+}
+
+fn print_area(s: &impl Shape) {
+    println!("面积: {:.2}", s.area());
+}
+
+fn main() {
+    let s = make_shape();
+    print_area(&s);
+}
+```
+
+</details>
 
 > 💡 **技巧**：`impl Trait` 在参数位置等价于泛型约束 `T: Trait`，在返回位置表示"返回某个实现了 Trait 的具体类型"（编译器自动推断）。
 
@@ -226,6 +305,7 @@ fn main() {
 用 Newtype 给每个数字一个"身份"：
 
 ```rust
+// 📎 片段 1/2：用 Newtype 定义带语义的类型和函数
 struct AccountId(u32);
 struct Amount(u32);
 
@@ -235,6 +315,7 @@ fn transfer(from: AccountId, to: AccountId, amount: Amount) {
 ```
 
 ```rust
+// 📎 片段 2/2：main 中调用
 fn main() {
     let a = AccountId(1001);
     let b = AccountId(2002);
@@ -244,9 +325,32 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：Newtype 就像给每个数字发工牌——`u32` 本来都长一样，套上 `AccountId` 工牌后编译器一眼就能认出谁是账户、谁是金额，张冠李戴直接被拦。
+<details>
+<summary>👉 点开：查看「Newtype 版转账」完整可运行版（✅）</summary>
+
+```rust
+struct AccountId(u32);
+struct Amount(u32);
+
+fn transfer(from: AccountId, to: AccountId, amount: Amount) {
+    println!("{} -> {}: {} 元", from.0, to.0, amount.0);
+}
+
+fn main() {
+    let a = AccountId(1001);
+    let b = AccountId(2002);
+    let money = Amount(50);
+    transfer(a, b, money); // OK
+}
+```
+
+</details>
+
+> **比喻**：Newtype 就像给每个数字发工牌——`u32` 本来都长一样，套上 `AccountId` 工牌后编译器一眼就能认出谁是账户、谁是金额，张冠李戴直接被拦。
 
 > 📌 **要点**：Newtype 是 Rust 生产代码的高频模式——给"裸数字"赋予语义、绕过孤儿规则（orphan rule）为外部类型实现 trait、区分单位（`Meters` vs `Seconds`）。实战 1 的 `Task` 结构体也是这种思路的延伸——用有名字的类型把相关数据打包，让编译器帮你把关，而不是散落一地的裸变量（严格说，Newtype 特指单字段元组结构体，`Task` 这种多字段结构体是它的近亲）。
+
+> 📖 **术语解释 · 孤儿规则**：只有 Trait 或类型至少一方定义在当前 crate 里，才能为该类型实现该 Trait；防止跨 crate 的实现冲突。
 
 ---
 
@@ -254,13 +358,13 @@ fn main() {
 
 ### 基础题
 
-**1.** 写一个泛型函数 `first<T>(v: &Vec<T>) -> Option<&T>`，返回向量的第一个元素引用。
+**1.** 写一个泛型函数 `first<T>(v: &[T]) -> Option<&T>`，返回切片的第一个元素引用。
 
 <details>
 <summary>参考答案要点</summary>
 
 ```rust
-fn first<T>(v: &Vec<T>) -> Option<&T> {
+fn first<T>(v: &[T]) -> Option<&T> {
     if v.is_empty() { None } else { Some(&v[0]) }
 }
 fn main() {
@@ -354,6 +458,7 @@ fn main() {
 用泛型和 Trait 写一个支持多种形状的面积计算器：
 
 ```rust
+// 📎 片段 1/2：定义 Area Trait 并为两种形状实现
 trait Area { fn area(&self) -> f64; }
 struct Circle { r: f64 }
 struct Rect { w: f64, h: f64 }
@@ -366,6 +471,7 @@ impl Area for Rect {
 ```
 
 ```rust
+// 📎 片段 2/2：泛型函数 + main
 fn print_area<T: Area>(shape: &T) {
     println!("面积: {:.2}", shape.area());
 }
@@ -377,9 +483,48 @@ fn main() {
 }
 ```
 
+<details>
+<summary>👉 点开：查看「形状面积计算器」完整可运行版（✅）</summary>
+
+```rust
+trait Area {
+    fn area(&self) -> f64;
+}
+struct Circle {
+    r: f64,
+}
+struct Rect {
+    w: f64,
+    h: f64,
+}
+impl Area for Circle {
+    fn area(&self) -> f64 {
+        3.14159 * self.r * self.r
+    }
+}
+impl Area for Rect {
+    fn area(&self) -> f64 {
+        self.w * self.h
+    }
+}
+
+fn print_area<T: Area>(shape: &T) {
+    println!("面积: {:.2}", shape.area());
+}
+
+fn main() {
+    let c = Circle { r: 5.0 };
+    let r = Rect { w: 3.0, h: 4.0 };
+    print_area(&c); // 78.54
+    print_area(&r); // 12.00
+}
+```
+
+</details>
+
 > 📌 **要点**：`print_area<T: Area>` 只关心"能不能算面积"，不关心"是什么形状"。这就是 Trait 的核心价值——面向行为编程。
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：泛型是"一套逻辑多种类型"，Trait 是类型的"能力清单"。
 >

@@ -12,7 +12,7 @@
 
 ## 项目概览
 
-> 💡 **比喻**：异步服务器就像一家咖啡厅——一个服务员（线程）可以同时服务多桌客人。客人 A 在等咖啡（I/O 操作）时，服务员不会傻站着，而是去招呼客人 B。等 A 的咖啡好了再端过去。这就是 async/await 的核心思想。
+> **比喻**：异步服务器就像一家咖啡厅——一个服务员（线程）可以同时服务多桌客人。客人 A 在等咖啡（I/O 操作）时，服务员不会傻站着，而是去招呼客人 B。等 A 的咖啡好了再端过去。这就是 async/await 的核心思想。
 
 ### 功能需求
 
@@ -31,6 +31,7 @@
 | 第6章 | Vec、String | HTTP 请求/响应解析 |
 | 第8章 | 闭包 | async 块 |
 | 第10章 | 多线程 | tokio 并发 |
+| 第11章 | async/await、tokio | 异步运行时、并发处理连接 |
 
 ---
 
@@ -54,7 +55,7 @@ tokio = { version = "1", features = ["full"] }
 
 ## 第二步：理解 async/await 基础
 
-> 📖 **术语解释 · async/await**：`async` 标记的函数返回一个 `Future`（未来值），`await` 等待 Future 完成。异步函数本身不会执行——需要运行时（如 tokio）来驱动。
+> 📖 **术语解释 · async/await**：`async` 标记的函数返回一个 `Future`，`await` 等待 Future 完成。异步函数本身不会执行——需要运行时（如 tokio）来驱动。
 
 > 📖 **术语解释 · Future**：表示一个"未来会产生值"的计算。就像你点外卖后拿到的订单号——订单号本身不是食物，但将来会变成食物。`await` 就是"等外卖送到"。
 
@@ -67,7 +68,42 @@ async fn read_file_async() -> String { /* 返回 Future */ }
 // 调用时需要 .await
 ```
 
-> 💡 **比喻**：同步 = 打电话等对方接（一直拿着手机），异步 = 发微信等回复（可以同时做别的事）。
+> **比喻**：同步 = 打电话等对方接（一直拿着手机），异步 = 发微信等回复（可以同时做别的事）。
+
+### 热身：先写一个 30 行的 TCP echo 服务器
+
+在碰 HTTP 之前，先跑通 tokio 网络编程的最小骨架——**收到什么原样发回什么**。把下面代码放进 `src/main.rs`，`cargo run` 后另开终端用 `ncat 127.0.0.1 8080`（或 PowerShell 的 `Test-NetConnection`）连上去，随便输入文字，会看到同样的内容被发回来：
+
+```rust
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = TcpListener::bind("127.0.0.1:8080").await?;
+    println!("echo server listening on 8080");
+    loop {
+        let (mut socket, addr) = listener.accept().await?;
+        println!("connection from {}", addr);
+        // 每个连接丢给一个独立任务，主循环立刻回去 accept 下一个
+        tokio::spawn(async move {
+            let mut buf = [0u8; 1024];
+            loop {
+                let n = match socket.read(&mut buf).await {
+                    Ok(0) => return,            // 对方关闭了连接
+                    Ok(n) => n,
+                    Err(e) => { eprintln!("read error: {}", e); return; }
+                };
+                if socket.write_all(&buf[..n]).await.is_err() {
+                    return;
+                }
+            }
+        });
+    }
+}
+```
+
+📌 **这就是后面整个 Web 服务器的骨架**：`TcpListener::bind` → 循环 `accept` → 每个连接 `tokio::spawn` 一个任务。唯一的区别是：echo 把字节原样发回，而 Web 服务器要把字节按 HTTP 格式**解析成请求**、再拼出 HTTP 格式的**响应**。热身跑通后，再继续往下写——别跳过这一步亲手连一次！
 
 ---
 
@@ -132,7 +168,7 @@ fn parse_path(request: &str) -> String {
 
 > 📖 **设计思路**：取第一行，按空格分割，第二部分就是路径。用 `Option` 链式调用避免 panic。
 
-> ⚠️ **新手坑（教学简化）**：这里用固定的 1024 字节缓冲，超长请求会被截断——对浏览器访问足够了，但生产环境的 HTTP 服务器要循环读取直到碰到空行 `\r\n\r\n`（请求头结束标志），还要处理大 body。另一个思路是像实战 4 那样用 `String` 动态拼接。
+> ⚠️ **新手坑（教学简化）**：这里用固定的 1024 字节缓冲，超长请求会被截断——对浏览器访问足够了，但生产环境的 HTTP 服务器要循环读取直到碰到空行 `\r\n\r\n`（请求头结束标志），还要处理大 body。另一个思路是用 `String` 边读边追加（`read_to_end` 或循环 `read` + `push_str`），本书为突出协议主线没有展开。
 
 ---
 
@@ -141,29 +177,41 @@ fn parse_path(request: &str) -> String {
 ```rust
 async fn handle_connection(mut stream: tokio::net::TcpStream) {
     let mut buffer = [0u8; 1024];
-    match stream.read(&mut buffer).await {
+    // 关键：接住 read 返回的 n——本次实际读到的字节数
+    let n = match stream.read(&mut buffer).await {
         Ok(0) => return,  // 连接关闭
-        Ok(_) => {}
+        Ok(n) => n,
         Err(e) => { eprintln!("读取失败: {}", e); return; }
-    }
+    };
 
-    let request = String::from_utf8_lossy(&buffer);
+    // 只能解析前 n 个字节；用整个 buffer 会把未初始化的零字节/残留内容也带进来
+    let request = String::from_utf8_lossy(&buffer[..n]);
     let path = parse_path(&request);
     let response = route(&path);
 
-    println!("📝 {} -> {}", path, if response.contains("200") { "200" } else { "404" });
+    // 从状态行解析真实状态码（而不是在整个响应里 contains("200")）
+    let code = status_code(&response).unwrap_or(0);
+    println!("📝 {} -> {}", path, code);
 
     if stream.write_all(response.as_bytes()).await.is_err() {
         eprintln!("写入失败");
     }
 }
+
+/// 解析响应第一行 "HTTP/1.1 200 OK" 中的状态码；调用方可用 (200..300).contains(&code) 判定成功
+fn status_code(response: &str) -> Option<u16> {
+    response.lines().next()?
+        .split_whitespace().nth(1)?
+        .parse().ok()
+}
 ```
 
 > 📖 **设计思路**：
-> - `read().await` 异步读取数据
+> - `read().await` 异步读取数据，并保存实际字节数 `n`
+> - 只按 `&buffer[..n]` 转字符串——这是所有 `read` 类 API 的通用纪律
 > - `String::from_utf8_lossy` 把字节安全转成字符串
 > - 解析路径 → 路由 → 写回响应
-> - 每步都用 `Result` 做错误处理
+> - 状态码从状态行解析，判定成功用区间 `200..300`，不能用 `contains("200")`（正文里恰好出现"200"就会误判）
 
 ---
 
@@ -194,11 +242,13 @@ async fn main() -> io::Result<()> {
 > - `listener.accept().await` 等待新连接
 > - `tokio::spawn` 为每个连接创建独立异步任务——这就是并发的关键！
 
-> 💡 **比喻**：`tokio::spawn` 就像咖啡厅经理——每来一桌客人就喊一个服务员去服务。多个服务员可以同时工作，互不阻塞。
+> **比喻**：`tokio::spawn` 就像咖啡厅经理——每来一桌客人就喊一个服务员去服务。多个服务员可以同时工作，互不阻塞。
 
 ---
 
 ## 完整代码
+
+> 💡 建议：完整代码末尾附带了一组针对解析函数的单元测试——`cargo test` 全绿后再 `cargo run` 启动服务器。
 
 ```rust
 use std::io;
@@ -238,16 +288,27 @@ fn parse_path(request: &str) -> String {
 
 async fn handle_connection(mut stream: TcpStream) {
     let mut buffer = [0u8; 1024];
-    match stream.read(&mut buffer).await {
+    // 接住实际读到的字节数 n
+    let n = match stream.read(&mut buffer).await {
         Ok(0) | Err(_) => return,
-        Ok(_) => {}
-    }
-    let request = String::from_utf8_lossy(&buffer);
+        Ok(n) => n,
+    };
+    // 只解析前 n 个字节
+    let request = String::from_utf8_lossy(&buffer[..n]);
     let path = parse_path(&request);
     let response = route(&path);
-    let status = if response.contains("200") { "200" } else { "404" };
-    println!("[{}] {} -> {}", timestamp(), path, status);
+    // 状态码从状态行解析，2xx 记为成功
+    let code = status_code(&response).unwrap_or(0);
+    let ok = (200..300).contains(&code);
+    println!("[{}] {} -> {} ({})", timestamp(), path, code, if ok { "成功" } else { "失败" });
     let _ = stream.write_all(response.as_bytes()).await;
+}
+
+/// 解析 "HTTP/1.1 200 OK" 状态行中的状态码
+fn status_code(response: &str) -> Option<u16> {
+    response.lines().next()?
+        .split_whitespace().nth(1)?
+        .parse().ok()
 }
 
 fn timestamp() -> String {
@@ -267,6 +328,33 @@ async fn main() -> io::Result<()> {
         tokio::spawn(handle_connection(stream));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_status_code() {
+        assert_eq!(status_code("HTTP/1.1 200 OK\r\n"), Some(200));
+        assert_eq!(status_code("HTTP/1.1 404 Not Found\r\n"), Some(404));
+        assert_eq!(status_code("HTTP/1.1 301 Moved\r\n"), Some(301));
+        assert_eq!(status_code(""), None);              // 空响应
+        assert_eq!(status_code("garbage"), None);     // 没有状态码段
+    }
+
+    #[test]
+    fn parses_request_path() {
+        assert_eq!(parse_path("GET /time HTTP/1.1\r\nHost: x\r\n"), "/time");
+        assert_eq!(parse_path(""), "/");              // 缺行时回默认路由
+    }
+
+    #[test]
+    fn routes_have_expected_status() {
+        assert_eq!(status_code(&route("/")), Some(200));
+        assert_eq!(status_code(&route("/time")), Some(200));
+        assert_eq!(status_code(&route("/no-such-page")), Some(404));
+    }
+}
 ```
 
 ---
@@ -279,11 +367,11 @@ Server running at http://127.0.0.1:8080
 Press Ctrl+C to stop
 
 New connection: 127.0.0.1:54321
-[00:00:42] / -> 200
+[00:00:42] / -> 200 (成功)
 New connection: 127.0.0.1:54322
-[00:00:43] /time -> 200
+[00:00:43] /time -> 200 (成功)
 New connection: 127.0.0.1:54323
-[00:00:44] /notfound -> 404
+[00:00:44] /notfound -> 404 (失败)
 ```
 
 在浏览器中访问：

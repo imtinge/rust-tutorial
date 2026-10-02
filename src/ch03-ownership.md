@@ -19,7 +19,7 @@
 
 Rust 的方案是**所有权系统**——编译时检查内存安全，运行时零开销。没有 GC，没有手动管理，全靠编译器在编译时帮你检查。
 
-> 💡 **比喻**：所有权就像奶茶杯的使用权——你买了一杯奶茶，这杯奶茶的"所有权"就是你的。你喝完了把杯子扔掉（离开作用域自动释放）。你要借给别人喝（借用），但不能两个人同时独占一杯（同一时刻只有一个所有者）。
+> **比喻**：所有权就像奶茶杯的使用权——你买了一杯奶茶，这杯奶茶的"所有权"就是你的。你喝完了把杯子扔掉（离开作用域自动释放）。你要借给别人喝（借用），但不能两个人同时独占一杯（同一时刻只有一个所有者）。
 
 > 💡 **另一个比喻**：**垃圾回收的性能开销 = 穿全套盔甲走路**。Python/JS 的 GC 让你安全，但每一步都多了额外负担。Rust 的所有权模型让你像脱掉盔甲一样轻装上阵——代价是你得学会怎么管理所有权。
 
@@ -36,6 +36,7 @@ Rust 所有权系统建立在这三条规则上：
 > 📖 **术语解释 · 作用域（Scope）**：变量"活着"的范围。在 `{}` 包裹的代码块里声明的变量，出了这个 `{}` 就不存在了。就像你住在宿舍楼里，出了宿舍楼就不再是"这个楼的住户"。
 
 ```rust
+// ✅ 完整可运行
 fn main() {
     {                           // s 的作用域开始
         let s = String::from("hi");
@@ -52,6 +53,7 @@ fn main() {
 对于堆上的数据（如 `String`），赋值不是拷贝，而是"移动"——所有权转交，原变量失效。
 
 ```rust
+// ✅ 完整可运行
 fn main() {
     let s1 = String::from("hello");
     let s2 = s1;          // s1 的所有权"移动"给了 s2
@@ -62,31 +64,36 @@ fn main() {
 
 > ⚠️ **新手坑**：这是从 Python 过来最容易踩的坑。Python 里 `s2 = s1` 后两个都能用，Rust 里 `s1` 被"掏空"了。
 
-> 🔧 **报错解法**：上面代码如果取消注释 `println!("{}", s1)`，编译器会给你这样的输出：
+> 🔧 **报错解法**：上面代码如果取消注释 `println!("{}", s1)`（该行在第 4 行），编译器会给你这样的输出：
 > ```
 > error[E0382]: borrow of moved value: `s1`
->  --> src/main.rs:3:18
+>  --> src/main.rs:4:20
 >   |
-> 1 |     let s1 = String::from("hello");
->   |         -- move occurs because `s1` has type `String`
-> 2 |     let s2 = s1;
->   |              -- value moved to `s2` here
-> 3 |     println!("{}", s1);
->   |                  ^^ value borrowed here after move
+> 2 |     let s1 = String::from("hello");
+>   |         -- move occurs because `s1` has type `String`, which does not implement the `Copy` trait
+> 3 |     let s2 = s1;
+>   |              -- value moved here
+> 4 |     println!("{}", s1);
+>   |                    ^^ value borrowed here after move
+>   |
+> help: consider cloning the value if the performance cost is acceptable
+>   |
+> 3 |     let s2 = s1.clone();
+>   |                ++++++++
 > ```
 > 逐行拆解：
 > - `error[E0382]` — 错误码，表示"使用了已被移动的值"
-> - `move occurs because s1 has type String` — 告诉你为什么移动：因为 `String` 不是 Copy 类型
-> - `value moved to s2 here` — 指出在第 2 行，`s1` 的值移动到了 `s2`
-> - `value borrowed here after move` — 指出在第 3 行，你试图在移动后使用 `s1`
+> - `move occurs because s1 has type String, which does not implement the Copy trait` — 告诉你为什么移动：因为 `String` 不是 Copy 类型
+> - `value moved here` — 指出在第 3 行，`s1` 的值移动到了 `s2`
+> - `value borrowed here after move` — 指出在第 4 行，你试图在移动后使用 `s1`
 >
-> 解决方案：如果两边都要用，用 `s2 = s1.clone()` 显式克隆。
+> 解决方案：如果两边都要用，用 `let s2 = s1.clone();` 显式克隆。
 >
 > 📌 **要点**：编译器报错不是终点——它是教学。仔细读每一行，你会发现自己对"移动"概念的理解在报错中逐渐加深。与编译器合作，而非对抗。
 >
-> 💡 **比喻**：移动就像你把奶茶杯给了别人——杯子只有一个，给了别人你就没有了。如果你想两人各一杯，那就买两杯（clone）。
+> **比喻**：移动就像你把奶茶杯给了别人——杯子只有一个，给了别人你就没有了。如果你想两人各一杯，那就买两杯（clone）。
 
-> 🖼️ **图示（参考 cheats.rs · Move Semantics）**：下面的小图用 `S(n)` 表示栈上的"命名称"（变量槽），`▼` 表示值落到哪个槽。和上面代码对照看，移动的本质一目了然。
+> **图示（参考 cheats.rs · Move Semantics）**：下面的小图用 `S(n)` 表示栈上的"命名称"（变量槽），`▼` 表示值落到哪个槽。和上面代码对照看，移动的本质一目了然。
 
 ```text
 栈 (stack)
@@ -108,6 +115,7 @@ fn main() {
 对于栈上的简单类型（整数、浮点数、布尔等），赋值时自动拷贝，原变量仍然有效：
 
 ```rust
+// ✅ 完整可运行
 fn main() {
     let x = 5;
     let y = x;        // i32 是 Copy 类型，直接拷贝
@@ -124,6 +132,7 @@ fn main() {
 把值传给函数，所有权也跟着移动：
 
 ```rust
+// ✅ 完整可运行
 fn say(name: String) {
     println!("你好, {}", name);
 } // name 离开作用域，被释放
@@ -138,6 +147,7 @@ fn main() {
 函数返回值也会转移所有权：
 
 ```rust
+// ✅ 完整可运行
 fn make_greeting() -> String {
     String::from("Hello!")
 }
@@ -156,11 +166,12 @@ fn main() {
 
 > 📖 **术语解释 · 借用（Borrowing）**：通过引用使用某个值，但不获取所有权。就像你把书借给同学看，书还是你的，同学看完要还回来。
 
-> 💡 **比喻**：借用检查器就像宿舍的查寝阿姨——她确保借东西的规矩被遵守：不能两个人同时拿走同一件东西（不可变和可变引用不能共存），借了的东西不能被原主人在借出期间修改（可变借用时不能有其他引用）。
+> **比喻**：借用检查器就像宿舍的查寝阿姨——她确保借东西的规矩被遵守：不能两个人同时拿走同一件东西（不可变和可变引用不能共存），借了的东西不能被原主人在借出期间修改（可变借用时不能有其他引用）。
 
 ### 不可变引用 `&T`
 
 ```rust
+// ✅ 完整可运行
 fn len(s: &String) -> usize {
     s.len() // 只读，不获取所有权
 }
@@ -172,7 +183,9 @@ fn main() {
 }
 ```
 
-> 🖼️ **图示（参考 cheats.rs · References as Pointers）**：下面的小图用 `S(n)` 表示栈上的"命名称"（变量槽），`0x..` 表示内存地址。它直观说明"引用存的是地址，不是值"。
+> 📖 **术语解释 · usize**：无符号整数类型，位数和本机指针一样（64 位机器上就是 64 位）。所有"长度、容量、下标"都用它——`len()` 返回 `usize`，数组/`Vec` 的下标也必须是 `usize`，想拿 `i32` 变量当下标得先转（见后文 `as`）。
+
+> **图示（参考 cheats.rs · References as Pointers）**：下面的小图用 `S(n)` 表示栈上的"命名称"（变量槽），`0x..` 表示内存地址。它直观说明"引用存的是地址，不是值"。
 
 ```text
 栈 (stack)
@@ -189,6 +202,7 @@ fn main() {
 ### 可变引用 `&mut T`
 
 ```rust
+// ✅ 完整可运行
 fn push_world(s: &mut String) {
     s.push_str(", world");
 }
@@ -200,7 +214,7 @@ fn main() {
 }
 ```
 
-> 🖼️ **图示（参考 cheats.rs · (Mutable) References）**：可变引用 `&mut T` 是唯一能改写那块内存的把手——"解引用 `*r`"就是顺着地址去改原值。
+> **图示（参考 cheats.rs · (Mutable) References）**：可变引用 `&mut T` 是唯一能改写那块内存的把手——"解引用 `*r`"就是顺着地址去改原值。
 
 ```text
 栈 (stack)
@@ -219,6 +233,7 @@ fn main() {
 2. **引用必须始终有效**——不能引用已经释放的数据。
 
 ```rust
+// ✅ 完整可运行
 fn main() {
     let mut s = String::from("hi");
     let r1 = &s;       // 不可变借用
@@ -265,6 +280,7 @@ fn no_dangle() -> String {
 切片是对一段连续数据的"引用视图"，不获取所有权。
 
 ```rust
+// ✅ 完整可运行
 fn main() {
     let s = String::from("hello world");
     let hello: &str = &s[0..5];   // 切片：前5个字符
@@ -275,9 +291,12 @@ fn main() {
 
 > 📖 **术语解释 · 切片（Slice）**：就像你切了一块蛋糕——你不拥有整个蛋糕（所有权在原蛋糕手里），但你拿着这块切片可以看、可以吃。`&str` 就是字符串切片的类型。
 
+> ⚠️ **新手坑**：切片下标必须落在 **UTF-8 字符边界**上。Rust 字符串是按字节切的，而一个汉字占 3 个字节：对 `"你好"` 取 `[0..1]` 正好切在"你"字中间，程序会在运行时 panic（`byte index 1 is not a char boundary`）。处理中文等非 ASCII 文本时，别想当然地按"第几个字"去切，可改用 `chars()` 等方法。
+
 数组也有切片：
 
 ```rust
+// ✅ 完整可运行
 fn main() {
     let arr = [1, 2, 3, 4, 5];
     let slice: &[i32] = &arr[1..4]; // [2, 3, 4]
@@ -317,6 +336,7 @@ fn main() {
 <summary>参考答案要点</summary>
 
 ```rust
+// ✅ 完整可运行
 fn first_word(s: &String) -> &str {
     let bytes = s.as_bytes();
     for (i, &byte) in bytes.iter().enumerate() {
@@ -352,6 +372,7 @@ fn main() {
 编译失败原因：`r1` 是不可变引用，`r2` 是可变引用，不能同时存在。
 修复方案：
 ```rust
+// ✅ 完整可运行
 fn main() {
     let mut s = String::from("hello");
     let r1 = &s;
@@ -371,6 +392,7 @@ fn main() {
 用所有权、借用、切片写一个字符串分析工具——统计一段文本的长度和第一个单词。
 
 ```rust
+// ✅ 完整可运行
 fn first_word(s: &str) -> &str {
     let bytes = s.as_bytes();
     for (i, &byte) in bytes.iter().enumerate() {
@@ -382,6 +404,7 @@ fn first_word(s: &str) -> &str {
 fn main() {
     let text = String::from("hello world rust");
     let word = first_word(&text);  // 借用，不拿走所有权
+    // 注：函数要 &str，这里传 &String 也能过——编译器靠 Deref coercion 自动转（第 10 章讲原理）
     println!("长度: {}, 首词: {}", text.len(), word);
 }
 ```
@@ -392,7 +415,7 @@ fn main() {
 
 > 📌 **要点**：这个项目展示了 Rust 的核心设计——`first_word` 借用了 `text` 但不拿走所有权，调用后 `text` 仍然可用。这就是"借用"的威力。
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：赋值不是复制，是"交钥匙"——钥匙（所有权）交出去，原变量就进不了门。
 >

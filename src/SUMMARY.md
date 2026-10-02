@@ -20,19 +20,20 @@
 - [第8章 生命周期与闭包：高级引用](ch08-lifetimes-closures.md)
 - [第9章 迭代器与模块系统：组织大型项目](ch09-iterators-modules.md)
 - [第10章 智能指针、并发与宏：进阶利器](ch10-advanced.md)
-- [第11章 测试：让代码值得信赖](ch11-testing.md)
+- [第11章 异步编程 async/await：让一个线程同时干一堆事](ch11-async-await.md)
+- [第12章 测试：让代码值得信赖](ch12-testing.md)
 
 # 第四阶段 · 痛点攻坚
 
-- [第12章 编译错误攻坚：与编译器做朋友](ch12-compiler-errors.md)
-- [第13章 内存布局可视化：看得透才能写得好](ch13-memory-layout.md)
-- [第14章 Unsafe Rust 与 FFI：Rust 的"后门"](ch14-unsafe-ffi.md)
+- [第13章 编译错误攻坚：与编译器做朋友](ch13-compiler-errors.md)
+- [第14章 内存布局可视化：看得透才能写得好](ch14-memory-layout.md)
+- [第15章 Unsafe Rust 与 FFI：Rust 的"后门"](ch15-unsafe-ffi.md)
 
 # 第五阶段 · 应用方向
 
-- [第15章 WebAssembly：Rust 进浏览器](ch15-webassembly.md)
-- [第16章 Cargo 进阶：从学习到生产](ch16-cargo-advanced.md)
-- [第17章 Rust 与 AI 生态：搭上 AI 快车](ch17-ai-ecosystem.md)
+- [第16章 WebAssembly：Rust 进浏览器](ch16-webassembly.md)
+- [第17章 Cargo 进阶：从学习到生产](ch17-cargo-advanced.md)
+- [第18章 Rust 与 AI 生态：搭上 AI 快车](ch18-ai-ecosystem.md)
 
 # 第六阶段 · 实战项目
 

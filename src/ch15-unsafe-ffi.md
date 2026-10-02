@@ -1,4 +1,4 @@
-# 第14章 Unsafe Rust 与 FFI：Rust 的"后门"
+# 第15章 Unsafe Rust 与 FFI：Rust 的"后门"
 
 > **学习目标**
 > - 理解 `unsafe` 关键字的含义和五大能力
@@ -10,7 +10,7 @@
 
 ---
 
-## 14.1 为什么需要 Unsafe？
+## 15.1 为什么需要 Unsafe？
 
 Rust 的安全保证在编译时检查，但有些场景编译器无法验证：
 
@@ -22,11 +22,11 @@ Rust 的安全保证在编译时检查，但有些场景编译器无法验证：
 
 > 📖 **术语解释 · Unsafe**：`unsafe` 关键字告诉编译器"这段代码我负责保证安全，你别管了"。不是"不安全"，而是"编译器无法验证安全性，由程序员接管"。就像你跟安检员说"这个包我知道没问题，你放行吧"——出了事你负责。
 
-> 💡 **比喻**：`unsafe` 就像你有一把万能钥匙——能打开任何门，但你得自己确认打开的不是别人家的门。正常情况不需要用，但有些活（修管道、装线路）确实得绕过门禁。
+> **比喻**：`unsafe` 就像你有一把万能钥匙——能打开任何门，但你得自己确认打开的不是别人家的门。正常情况不需要用，但有些活（修管道、装线路）确实得绕过门禁。
 
 ---
 
-## 14.2 Unsafe 的五大能力
+## 15.2 Unsafe 的五大能力
 
 ### 能力一：调用 unsafe 函数
 
@@ -81,6 +81,9 @@ fn main() {
 
 > 📌 **要点**：`static mut` 是全局可变的，多线程访问时可能数据竞争——所以每次访问都要包在 `unsafe` 里。
 
+> ⚠️ **Edition 2024 · static_mut_refs**：上面的**直接读写**（复制读出、`COUNTER += 1`）在 2024 仍允许；但对 `static mut` **取引用**不行了——
+> `let r = unsafe { &mut COUNTER };` 会直接报错：`error: creating a mutable reference to mutable static is discouraged`（lint `static_mut_refs`，2024 默认 deny）。因为这种引用一旦被多个线程同时持有就是数据竞争，编译器无法替你排除。实际项目里全局可变状态优先用 `AtomicI32`（原子整数）、`Mutex`（第 10 章）或 `OnceLock`，把 `static mut` 留给确实需要的底层场景。
+
 ### 能力四：访问 union 字段
 
 ```rust
@@ -100,7 +103,8 @@ fn main() {
 ### 能力五：调用外部函数（FFI）
 
 ```rust
-extern "C" {
+// edition 2024 写法：extern 块本身要标 unsafe；2021 版直接写 extern "C" {
+unsafe extern "C" {
     fn abs(x: i32) -> i32;  // C 标准库的 abs 函数
 }
 
@@ -111,11 +115,11 @@ fn main() {
 }
 ```
 
-> 💡 **比喻**：FFI 就像请了一个外国厨师——你不懂他的手法（C 代码的安全保证），但你给他钥匙（`extern "C"`），让他进厨房做菜。出了食品安全问题你负责。
+> **比喻**：FFI 就像请了一个外国厨师——你不懂他的手法（C 代码的安全保证），但你给他钥匙（`extern "C"`），让他进厨房做菜。出了食品安全问题你负责。
 
 ---
 
-## 14.3 Safe Rust 包装 Unsafe
+## 15.3 Safe Rust 包装 Unsafe
 
 最佳实践：把 unsafe 封装在安全 API 后面：
 
@@ -143,14 +147,15 @@ fn main() {
 
 ---
 
-## 14.4 调用 C 代码：FFI 实战
+## 15.4 调用 C 代码：FFI 实战
 
 > 📖 **术语解释 · FFI**：Foreign Function Interface，外部函数接口。让 Rust 调用 C/汇编/其他语言的函数，或被其他语言调用。就像不同语言之间的翻译官。
 
 ### Rust 调用 C 的 `abs` 函数
 
 ```rust
-extern "C" {
+// edition 2024：unsafe extern "C"；2021：extern "C"
+unsafe extern "C" {
     fn abs(x: i32) -> i32;
 }
 
@@ -175,7 +180,7 @@ pub extern "C" fn add_in_rust(a: i32, b: i32) -> i32 {
 
 ---
 
-## 14.5 什么时候用 Unsafe？
+## 15.5 什么时候用 Unsafe？
 
 | 场景 | 是否需要 unsafe | 说明 |
 |------|:---:|------|
@@ -189,7 +194,7 @@ pub extern "C" fn add_in_rust(a: i32, b: i32) -> i32 {
 
 ---
 
-## 14.6 课后练习
+## 15.6 课后练习
 
 ### 基础题
 
@@ -227,7 +232,7 @@ fn main() {
     println!("{}", get_count());  // 3
 }
 ```
-注意：`static mut` 不是线程安全的，实际项目用 `AtomicI32`。
+注意：`static mut` 不是线程安全的；2024 下还不能对它取引用（`static_mut_refs`），实际项目用 `AtomicI32`。
 </details>
 
 ### 挑战题
@@ -238,7 +243,8 @@ fn main() {
 <summary>参考答案要点</summary>
 
 ```rust
-extern "C" {
+// edition 2024：unsafe extern "C"；2021：extern "C"
+unsafe extern "C" {
     fn rand() -> i32;
 }
 fn main() {
@@ -253,17 +259,19 @@ fn main() {
 
 ---
 
-## 14.7 Mini Project：用 FFI 调用 C 的 strlen
+## 15.7 Mini Project：用 FFI 调用 C 的 strlen
 
 用 `extern "C"` 声明 C 标准库的 `strlen` 函数，**真正调用它**统计字符串字节数——然后把 unsafe 封装进安全 API。
 
 关键在 `CString`：C 字符串必须以 `\0` 结尾，而 Rust 的 `String`/`&str` 没有这个约定，所以要先转换格式：
 
 ```rust
+// 📎 片段 1/2：extern 声明 + 安全封装
 use std::ffi::CString;
 use std::os::raw::c_char;
 
-extern "C" {
+// edition 2024：unsafe extern "C"；2021：extern "C"
+unsafe extern "C" {
     fn strlen(s: *const c_char) -> usize;  // C 函数签名
 }
 
@@ -276,6 +284,7 @@ pub fn c_string_len(s: &str) -> usize {
 ```
 
 ```rust
+// 📎 片段 2/2：调用
 fn main() {
     let s = "hello, FFI";
     println!("Rust 统计: {} 字节", s.len());
@@ -283,20 +292,45 @@ fn main() {
 }
 ```
 
+<details>
+<summary>👉 点开：FFI 调用 strlen 完整可运行版（✅）</summary>
+
+```rust
+use std::ffi::CString;
+use std::os::raw::c_char;
+
+unsafe extern "C" {
+    fn strlen(s: *const c_char) -> usize;
+}
+
+fn c_string_len(s: &str) -> usize {
+    let c = CString::new(s).expect("字符串里不能包含 \\0");
+    unsafe { strlen(c.as_ptr()) }
+}
+
+fn main() {
+    let s = "hello, FFI";
+    println!("Rust 统计: {} 字节", s.len());
+    println!("C 统计:   {} 字节", c_string_len(s));
+}
+```
+
+</details>
+
 运行后两个数字完全一致——但一个由 Rust 的 `len()` 数出来，另一个是 C 的 `strlen` 跨过 FFI 边界替你数出来的。
 
 > ⚠️ **新手坑**：不能直接把 `&str` 的指针喂给 `strlen`——Rust 字符串没有 `\0` 结尾，`strlen` 会一路越界读取，直到碰巧撞上一个 0 字节，行为未定义。`CString` 负责补上结尾的 `\0`，这正是"安全封装"的价值：把"格式差异"这个坑挡在边界内。
 
 > 📌 **要点**：这个练习展示了 FFI 的标准工作流——`extern "C"` 声明 C 函数签名，`CString` 做数据格式转换，`unsafe` 块内调用，再把 unsafe 包进安全函数。调用者只看到 `c_string_len(s)`，完全感知不到背后的 unsafe。
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：unsafe 不是"不安全"，是"编译器不查，你自己负责"。
 >
 > **口诀**：五大能力——unsafe 函数、裸指针、static mut、union、extern FFI；最佳实践是包进安全 API。
 >
 > **三个判断题**（心里过一遍）：
-> 1. 写了 unsafe 代码程序就一定有内存问题 → ✗（只是不检查，写对照样安全）
+> 1. 写了 unsafe 代码程序就一定有内存问题 → ✗（只是不检查，写对了一样安全）
 > 2. FFI 调用 C 函数必须包在 unsafe 块里 → ✓
 > 3. Rust 字符串可以直接把指针传给 C 的 `strlen` → ✗（无 `\0` 结尾，要先用 `CString` 转换）
 
@@ -314,4 +348,4 @@ fn main() {
 
 ---
 
-> 🦀 **下一章预告**：第 15 章我们进入应用方向——WebAssembly，让 Rust 跑进浏览器。痛点攻坚三部曲（编译错误、内存布局、Unsafe/FFI）到此完成，接下来还有 Cargo 进阶、AI 生态和 5 个实战项目——把所有知识串联起来，写出真正可运行的 Rust 程序！
+> 🦀 **下一章预告**：第 16 章我们进入应用方向——WebAssembly，让 Rust 跑进浏览器。痛点攻坚三部曲（编译错误、内存布局、Unsafe/FFI）到此完成，接下来还有 Cargo 进阶、AI 生态和 5 个实战项目——把所有知识串联起来，写出真正可运行的 Rust 程序！

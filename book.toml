@@ -5,9 +5,6 @@ description = "面向零基础自学者的 Rust 教程——风趣幽默，由�
 language = "zh"
 src = "src"
 
-[rust]
-edition = "2021"
-
 [output.html]
 default-theme = "light"
 preferred-dark-theme = "ayu"

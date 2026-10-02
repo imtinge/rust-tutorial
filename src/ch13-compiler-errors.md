@@ -1,4 +1,4 @@
-# 第12章 编译错误攻坚：与编译器做朋友
+# 第13章 编译错误攻坚：与编译器做朋友
 
 > **学习目标**
 > - 掌握 Rust 最常见的 6 大编译错误及其修复方案
@@ -10,15 +10,17 @@
 
 ---
 
-## 12.1 为什么 Rust 编译器这么"凶"？
+## 13.1 为什么 Rust 编译器这么"凶"？
 
-> 💡 **比喻**：Rust 编译器就像一个特别严格的安检员——你包里有一丁点违禁品她都不放过。但你想想，上飞机时你愿意安检松一点还是严一点？严，才能保证不出事。Rust 编译器帮你消灭了段错误、内存泄漏、数据竞争——代价是你得多跟她解释几句。
+> **比喻**：Rust 编译器就像一个特别严格的安检员——你包里有一丁点违禁品她都不放过。但你想想，上飞机时你愿意安检松一点还是严一点？严，才能保证不出事。Rust 在编译期就帮你消灭了段错误、悬垂指针、缓冲区越界、数据竞争——代价是你得多跟她解释几句。
+
+> 📖 **小知识**：注意上面没有说"内存泄漏"——Rust 无法完全防止内存泄漏（比如 `Box::leak` 主动泄漏、`Rc` 循环引用都合法），但这类泄漏不是"内存不安全"，不会导致段错误。
 
 > 📌 **要点**：Rust 编译器报错信息是所有编程语言里最友好的。它包含：错误码（搜索用）、精确行号定位、上下文标注、修复建议。学会读报错 = 拥有 24 小时免费导师。
 
 ---
 
-## 12.2 六大高频编译错误
+## 13.2 六大高频编译错误
 
 ### 错误一：E0382 — 使用了已移动的值
 
@@ -30,29 +32,29 @@ fn main() {
 }
 ```
 
-编译器输出：
+编译器输出（rustc 1.99 实测；为省篇幅略去了末尾关于未使用变量 `s2` 的 warning）：
 ```
 error[E0382]: borrow of moved value: `s1`
- --> src/main.rs:3:20
+ --> src/main.rs:4:20
   |
-1 |     let s1 = String::from("hello");
-  |         -- move occurs because `s1` has type `String`
-2 |     let s2 = s1;
-  |              -- value moved to `s2` here
-3 |     println!("{}", s1);
+2 |     let s1 = String::from("hello");
+  |         -- move occurs because `s1` has type `String`, which does not implement the `Copy` trait
+3 |     let s2 = s1;
+  |              -- value moved here
+4 |     println!("{}", s1);
   |                    ^^ value borrowed here after move
   |
-help: consider cloning the value
+help: consider cloning the value if the performance cost is acceptable
   |
-2 |     let s2 = s1.clone();
+3 |     let s2 = s1.clone();
   |                ++++++++
 ```
 
 **逐行拆解**：
-- `move occurs because s1 has type String` — `String` 不是 Copy 类型，赋值即移动
-- `value moved to s2 here` — 第 2 行，所有权转移到了 `s2`
-- `value borrowed here after move` — 第 3 行，移动后又用了 `s1`
-- `help: consider cloning` — 编译器直接给了修复建议！
+- `move occurs because s1 has type String, which does not implement the Copy trait` — `String` 不是 Copy 类型，赋值即移动
+- `value moved here` — 第 3 行，所有权转移到了 `s2`
+- `value borrowed here after move` — 第 4 行，移动后又用了 `s1`
+- `help: consider cloning...` — 编译器直接给了修复建议！
 
 **修复方案**：
 ```rust
@@ -76,12 +78,17 @@ fn main() {
 
 ```
 error[E0384]: cannot assign twice to immutable variable `x`
- --> src/main.rs:2:5
+ --> src/main.rs:3:5
   |
-1 |     let x = 5;
+2 |     let x = 5;
   |         - first assignment to `x`
-2 |     x = 6;
+3 |     x = 6;
   |     ^^^^^ cannot assign twice to immutable variable
+  |
+help: consider making this binding mutable
+  |
+2 |     let mut x = 5;
+  |         +++
 ```
 
 **修复方案**：
@@ -107,20 +114,20 @@ fn main() {
 
 ```
 error[E0502]: cannot borrow `s` as mutable because it is also borrowed as immutable
- --> src/main.rs:3:14
+ --> src/main.rs:4:14
   |
-1 |     let r1 = &s;
-  |               - immutable borrow occurs here
-2 |     let r2 = &mut s;
+3 |     let r1 = &s;
+  |              -- immutable borrow occurs here
+4 |     let r2 = &mut s;
   |              ^^^^^^ mutable borrow occurs here
-3 |     println!("{}", r1);
-  |                  ---- immutable borrow later used here
+5 |     println!("{}", r1);
+  |                    -- immutable borrow later used here
 ```
 
 **逐行拆解**：
-- `immutable borrow occurs here` — 第 1 行创建了不可变引用 `r1`
-- `mutable borrow occurs here` — 第 2 行又创建可变引用，冲突
-- `immutable borrow later used here` — 第 3 行还在用 `r1`，所以 `r1` 的借用没结束
+- `immutable borrow occurs here` — 第 3 行创建了不可变引用 `r1`
+- `mutable borrow occurs here` — 第 4 行又创建可变引用，冲突
+- `immutable borrow later used here` — 第 5 行还在用 `r1`，所以 `r1` 的借用没结束
 
 **修复方案**：在创建可变引用前，确保不可变引用不再使用：
 ```rust
@@ -148,15 +155,23 @@ fn main() {
 ```
 
 ```
-error[E0277]: the trait bound `MyStruct: Debug` is not satisfied
- --> src/main.rs:6:16
+error[E0277]: `MyStruct` doesn't implement `Debug`
+ --> src/main.rs:8:16
   |
-6 |     print_info(MyStruct { name: String::from("test") });
-  |               ^^^^^^^^ the trait `Debug` is not implemented for `MyStruct`
+8 |     print_info(MyStruct { name: String::from("test") });
+  |     ---------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Debug` is not implemented for `MyStruct`
+  |     |
+  |     required by a bound introduced by this call
   |
+note: required by a bound in `print_info`
+ --> src/main.rs:1:18
+  |
+1 | fn print_info<T: std::fmt::Debug>(item: T) {
+  |                  ^^^^^^^^^^^^^^^ required by this bound in `print_info`
 help: consider annotating `MyStruct` with `#[derive(Debug)]`
   |
-1 + #[derive(Debug)]
+5 + #[derive(Debug)]
+6 | struct MyStruct { name: String }
   |
 ```
 
@@ -166,7 +181,7 @@ help: consider annotating `MyStruct` with `#[derive(Debug)]`
 struct MyStruct { name: String }
 ```
 
-> 💡 **技巧**：看到 `trait bound X is not satisfied`，先看编译器的 `help:` 提示——它通常直接给你修复方案。
+> 💡 **技巧**：看到 E0277（新版报"`X` doesn't implement `Y`"，旧版写"the trait bound ... is not satisfied"，含义相同），先看编译器的 `help:` 提示——它通常直接给你修复方案。
 
 ---
 
@@ -180,19 +195,17 @@ fn add(a: i32, b: i32) -> i32 {
 
 ```
 error[E0308]: mismatched types
- --> src/main.rs:2:5
+ --> src/main.rs:1:27
   |
-1 |   fn add(a: i32, b: i32) -> i32 {
-  |                              --- expected `i32` because of return type
-2 |       a + b;
-  |       ^^^^^ expected `i32`, found `()`
-  |
-help: remove this semicolon
-  |
-2 -     a + b;
-2 +     a + b
-  |
+1 | fn add(a: i32, b: i32) -> i32 {
+  |    ---                    ^^^ expected `i32`, found `()`
+  |    |
+  |    implicitly returns `()` as its body has no tail or `return` expression
+2 |     a + b;
+  |          - help: remove this semicolon to return this value
 ```
+
+> 📖 **读法提示**：编译器把主报错挂在**返回类型** `i32` 处（说"你该返回 i32，实际返回了 ()"），修复建议 `-` 直接指向第 2 行那个多余的分号。
 
 **修复方案**：删掉分号，或用 `return`：
 ```rust
@@ -216,13 +229,18 @@ fn main() {
 
 ```
 error[E0596]: cannot borrow `s` as mutable, as it is not declared as mutable
- --> src/main.rs:2:13
+ --> src/main.rs:3:13
   |
-1 |     let s = String::from("hi");
-  |         - help: consider changing this to be mutable: `mut s`
-2 |     let r = &mut s;
+3 |     let r = &mut s;
   |             ^^^^^^ cannot borrow as mutable
+  |
+help: consider changing this to be mutable
+  |
+2 |     let mut s = String::from("hi");
+  |         +++
 ```
+
+> 📖 **注意**：真实输出还会有一条未使用变量 `r` 的 warning，这里略去。
 
 **修复方案**：
 ```rust
@@ -232,7 +250,7 @@ let r = &mut s;                   // OK
 
 ---
 
-## 12.3 五大经典新手陷阱
+## 13.3 五大经典新手陷阱
 
 ### 陷阱一：for 循环中使用 Vec 的 len
 
@@ -294,7 +312,7 @@ let first_char = s.chars().next().unwrap();  // '你'
 println!("{}", first_char);
 ```
 
-> 💡 **比喻**：Rust 字符串是一列 UTF-8 字节的火车。你直接数"第 3 节车厢"可能取到的不是你想要的字符——因为有的字符占 1 节车厢，有的占 3 节。
+> 📌 这里的重点是"`s[0]` 连编译都过不了"（而非运行时取错字节）。UTF-8 字节火车的完整比喻和字符串切片讲解见第 6 章。
 
 ---
 
@@ -335,7 +353,7 @@ let z = x.saturating_add(1);                 // 饱和加法，溢出停在 255
 
 ---
 
-## 12.4 FAQ：编译器报错常见问题
+## 13.4 FAQ：编译器报错常见问题
 
 **Q: 编译器说了一大堆 `error`，我该从哪个开始看？**
 
@@ -343,7 +361,11 @@ let z = x.saturating_add(1);                 // 饱和加法，溢出停在 255
 
 **Q: 编译器建议我加 `#[derive(Debug)]`，加了之后又报别的错怎么办？**
 
-> 别想一口气修完所有问题——每修一个就重新编译，看下一个。
+> 这正是上一条说的连锁反应——加完重新编译，看下一个报错。编译器的建议每次只针对它当前看到的第一个问题，别指望一条建议解决所有事。
+
+**Q: 编译没有 error 但有一堆 warning，需要管吗？**
+
+> warning 不阻止编译，但常常是 bug 的苗头：未使用的变量、永不执行的分支、被遮蔽的名字……先读懂再决定。个别确认无害的可用 `#[allow(警告名)]` 局部关掉；想对自己严格点，在文件顶部加 `#![deny(warnings)]` 把所有 warning 升级成 error（CI 里常用）。
 
 **Q: Debug 模式能跑，Release 模式报错怎么办？**
 
@@ -355,7 +377,7 @@ let z = x.saturating_add(1);                 // 饱和加法，溢出停在 255
 
 ---
 
-## 12.5 课后练习
+## 13.5 课后练习
 
 ### 基础题
 
@@ -435,50 +457,79 @@ fn main() {
 
 ---
 
-## 12.6 Mini Project：Debug 大挑战
+## 13.6 Mini Project：Debug 大挑战
 
 下面这段代码有 **2 个错误**。你的任务：编译它、读懂每个报错、逐一修复——全程不许看提示。
 
 ```rust
-fn double(x: i32) -> i32 {
-    x * 2;
+struct User {
+    name: String,
+    active: bool,
+}
+
+fn name_len(u: User) -> usize {
+    u.name.len()
 }
 
 fn main() {
-    let s = String::from("hello");
-    let s2 = s;
-    println!("{}", s);
-    let n = double(5);
-    println!("{}", n);
+    let users = vec![
+        User { name: String::from("小明"), active: true },
+        User { name: String::from("Alice"), active: false },
+    ];
+
+    let count;
+    if users[0].active {
+        count = 1;
+    }
+    println!("{}", count);
+
+    for user in users {
+        if user.active {
+            println!("活跃用户 {}，名字字节数 {}", user.name, name_len(user));
+        }
+    }
 }
 ```
 
 <details>
 <summary>卡住了？点开看错误清单（先自己试！）</summary>
 
-1. **E0308** — `double` 函数 `x * 2;` 多了分号，返回 `()` 而非 `i32` → 删分号
-2. **E0382** — `s` 被 move 到 `s2` 后又使用 `s` → 用 `s.clone()` 或 `&s`
-3. 验证：修完后编译通过，输出 `hello` 和 `10`
+1. **E0381** — `count` 只在 `if` 条件成立时赋值；条件为假时它未被初始化，`println!` 就可能用到一个未初始化的绑定 → 用 `let count = if ... { 1 } else { 0 };` 保证两条路都赋值
+2. **E0505** — `println!` 一边借用 `user.name`，一边又把 `user` move 给 `name_len(user)`，借用和移走同时发生 → 把 `name_len` 改成借用 `&User`，调用写 `name_len(&user)`
+3. 验证：修完后编译通过，输出 `1` 和 `活跃用户 小明，名字字节数 6`（"小明"是 6 个字节）
 
 修复后：
 ```rust
-fn double(x: i32) -> i32 {
-    x * 2
+struct User {
+    name: String,
+    active: bool,
+}
+
+fn name_len(u: &User) -> usize {
+    u.name.len()
 }
 
 fn main() {
-    let s = String::from("hello");
-    let s2 = s.clone();
-    println!("{}", s);
-    let n = double(5);
-    println!("{}", n);
+    let users = vec![
+        User { name: String::from("小明"), active: true },
+        User { name: String::from("Alice"), active: false },
+    ];
+
+    let count = if users[0].active { 1 } else { 0 };
+    println!("{}", count);
+
+    for user in users {
+        if user.active {
+            println!("活跃用户 {}，名字字节数 {}", user.name, name_len(&user));
+        }
+    }
 }
 ```
 </details>
 
 > 📌 **要点**：真实工作中 debug 就是这个节奏——一次编译报多个错，从第一个修起，每修一个重新编译。这个过程练 10 遍，你对编译器输出的"语感"就培养起来了。
 
-> ### 📝 记忆卡片
+> ### 记忆卡片
 >
 > **一句话**：编译器输出 = 错误码 + 位置 + help——从第一个错修起，改一个编译一次。
 >
@@ -506,4 +557,4 @@ fn main() {
 
 ---
 
-> 🦀 **下一章预告**：第 13 章我们来看 Rust 的内存布局——用可视化方式理解栈、堆、指针的关系，"看得透"才能写得好。
+> 🦀 **下一章预告**：第 14 章我们来看 Rust 的内存布局——用可视化方式理解栈、堆、指针的关系，"看得透"才能写得好。
