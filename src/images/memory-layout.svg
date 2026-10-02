@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 490" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif">
+  <rect x="0" y="0" width="680" height="490" fill="#ffffff"/>
+  <text x="40" y="34" font-size="19" font-weight="600" fill="#1f2933">应用程序内存布局</text>
+  <text x="40" y="54" font-size="12" fill="#7a828c">Application Memory · 分区概念参考自 cheats.rs（Memory &amp; Lifetimes，CC BY-NC）</text>
+
+  <!-- 内存大框 -->
+  <rect x="40" y="72" width="320" height="346" fill="#fbfcfd" stroke="#c9d2da" stroke-width="1.5"/>
+
+  <!-- 栈 stack (顶, 高地址, 向下生长) -->
+  <rect x="40" y="72" width="320" height="86" fill="#e6f1fb" stroke="#378add" stroke-width="1.5"/>
+  <text x="56" y="100" font-size="14" font-weight="600" fill="#185fa5">栈 Stack</text>
+  <text x="56" y="120" font-size="11.5" fill="#2c3e50">函数参数、局部变量、大小固定的值</text>
+  <text x="56" y="138" font-size="11.5" fill="#2c3e50">小、快、低开销；后进先出（LIFO）</text>
+  <text x="300" y="84" font-size="13" fill="#185fa5" font-weight="600">高地址 ▼</text>
+
+  <!-- 堆 heap (中, 向上生长) -->
+  <rect x="40" y="158" width="320" height="100" fill="#eaf3de" stroke="#639922" stroke-width="1.5"/>
+  <text x="56" y="186" font-size="14" font-weight="600" fill="#3b6d11">堆 Heap</text>
+  <text x="56" y="206" font-size="11.5" fill="#2c3e50">String/Vec/Box 的动态数据</text>
+  <text x="56" y="224" font-size="11.5" fill="#2c3e50">大、灵活；通过指针访问，需手动/自动管理</text>
+  <text x="56" y="244" font-size="11.5" fill="#2c3e50">扩容时地址会迁移（见 13.3）</text>
+  <text x="300" y="170" font-size="13" fill="#3b6d11" font-weight="600">▲ 向上</text>
+
+  <!-- 静态 static -->
+  <rect x="40" y="258" width="320" height="76" fill="#faedda" stroke="#ba7517" stroke-width="1.5"/>
+  <text x="56" y="284" font-size="14" font-weight="600" fill="#854f0b">静态区 Static</text>
+  <text x="56" y="304" font-size="11.5" fill="#2c3e50">全局/静态变量、字符串字面量</text>
+  <text x="56" y="322" font-size="11.5" fill="#2c3e50">生命周期为 'static（整个程序运行期）</text>
+
+  <!-- 代码 code (底, 低地址) -->
+  <rect x="40" y="334" width="320" height="84" fill="#f1efe8" stroke="#888780" stroke-width="1.5"/>
+  <text x="56" y="362" font-size="14" font-weight="600" fill="#5f5e5a">代码区 Code</text>
+  <text x="56" y="382" font-size="11.5" fill="#2c3e50">编译后的机器指令（只读）</text>
+  <text x="56" y="400" font-size="11.5" fill="#2c3e50">程序启动时由操作系统载入</text>
+  <text x="300" y="408" font-size="13" fill="#5f5e5a" font-weight="600">低地址</text>
+
+  <!-- 右侧说明 -->
+  <text x="392" y="92" font-size="12.5" font-weight="600" fill="#1f2933">地址方向</text>
+  <text x="392" y="112" font-size="11.5" fill="#2c3e50">栈从高地址向低地址增长（栈顶下移），</text>
+  <text x="392" y="130" font-size="11.5" fill="#2c3e50">堆从低地址向高地址增长。</text>
+  <text x="392" y="148" font-size="11.5" fill="#2c3e50">二者相向而行，中间是空闲区。</text>
+
+  <text x="392" y="196" font-size="12.5" font-weight="600" fill="#1f2933">为什么重要</text>
+  <text x="392" y="216" font-size="11.5" fill="#2c3e50">· String 在栈上只存 ptr/len/cap，</text>
+  <text x="392" y="234" font-size="11.5" fill="#2c3e50">  真正文本在堆上（见 13.2）。</text>
+  <text x="392" y="252" font-size="11.5" fill="#2c3e50">· 引用存的是"地址"，不是值。</text>
+
+  <text x="392" y="300" font-size="12.5" font-weight="600" fill="#1f2933">借用检查器在看什么</text>
+  <text x="392" y="320" font-size="11.5" fill="#2c3e50">它追踪每个值在栈/堆上的存活区间，</text>
+  <text x="392" y="338" font-size="11.5" fill="#2c3e50">确保引用指向的内存不会"提前消失"。</text>
+
+  <text x="392" y="386" font-size="11.5" fill="#7a828c">图例：颜色区分内存段，箭头表示</text>
+  <text x="392" y="404" font-size="11.5" fill="#7a828c">各段的分配增长方向。</text>
+
+  <text x="40" y="468" font-size="10.5" fill="#9aa0a8">示意图，用于建立"程序内存 = 一段字节数组、由环境分段"的直觉。详细栈帧/生命周期图见第 3、8 章。</text>
+</svg>

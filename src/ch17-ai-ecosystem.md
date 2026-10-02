@@ -132,6 +132,135 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ---
 
+### 路线一示例：用 candle 在本地跑推理
+
+`candle` 是 HuggingFace 官方的 Rust 推理框架，CPU/GPU 都能跑，让你直接在本机加载模型做推理、数据不出门。最小的"Hello World"是先理解它的底层积木——张量（Tensor）：
+
+```toml
+[dependencies]
+candle-core = "0.6"
+```
+
+```rust
+use candle_core::{Device, Tensor};
+
+fn main() -> Result<(), candle_core::Error> {
+    let device = Device::Cpu;
+    // 张量就是"带形状的数组"，是模型计算的基本单位
+    let a = Tensor::new(&[1.0f32, 2.0, 3.0], &device)?;
+    let b = Tensor::new(&[10.0f32, 20.0, 30.0], &device)?;
+    let c = (&a + &b)?; // 逐元素相加
+    println!("{:?}", c.to_vec1::<f32>()?); // [11.0, 22.0, 33.0]
+    Ok(())
+}
+```
+
+> 💡 **说明**：真实推理要加载 `.safetensors` 权重、跑模型前向、做分词与后处理，代码从十几行起步。`candle` 仓库的 `candle-examples` 里有现成的 `llama`、`whisper`、`stable-diffusion` 等完整示例，照抄比从零写快得多。**动手前务必看 crate 最新文档**，版本迭代很快。
+
+### 路线二进阶：用 async-openai 客户端
+
+`reqwest` 适合理解原理，但生产里更推荐用封装好的 `async-openai`——它把请求/响应结构体、流式解析都做好了，你只关心业务逻辑：
+
+```toml
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+async-openai = "0.20"
+```
+
+```rust
+use async_openai::{Client, config::OpenAIConfig};
+use async_openai::types::{
+    ChatCompletionRequestMessageArgs, CreateChatCompletionRequestArgs, Role,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 换成你的 key；兼容 OpenAI 及绝大多数 OpenAI 兼容服务
+    let config = OpenAIConfig::new().with_api_key(std::env::var("OPENAI_API_KEY")?);
+    let client = Client::with_config(config);
+
+    let req = CreateChatCompletionRequestArgs::default()
+        .model("gpt-4o-mini")
+        .messages([
+            ChatCompletionRequestMessageArgs::default()
+                .role(Role::System)
+                .content("你是一个简洁的 Rust 助教。")
+                .build()?,
+            ChatCompletionRequestMessageArgs::default()
+                .role(Role::User)
+                .content("用一句话解释生命周期")
+                .build()?,
+        ])
+        .build()?;
+
+    let resp = client.chat().completions().create(req).await?;
+    if let Some(choice) = resp.choices.first() {
+        println!("{}", choice.message.content.as_deref().unwrap_or("（空）"));
+    }
+    Ok(())
+}
+```
+
+> ⚠️ **注意**：上面是 `async-openai` 0.20 左右的写法，**具体类型名/方法随版本会变**——以 `docs.rs/async-openai` 为准。它内部也用 `reqwest` + `serde`，你 17.3 练的"结构体 + HTTP"功底直接派上用场。
+
+### 顺带一提：用 fastembed 做文本嵌入
+
+做语义搜索 / RAG 的第一步，是把文字变成向量。`fastembed` 封装了轻量嵌入模型：
+
+```toml
+[dependencies]
+fastembed = "2"
+```
+
+```rust
+use fastembed::{TextEmbedding, InitOptions};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 首次运行会自动下载模型权重（约几十 MB）
+    let model = TextEmbedding::try_new(Default::default())?;
+    let embeddings = model.embed(vec!["你好，世界", "Rust 真快"], None)?;
+
+    let v = &embeddings[0];
+    println!("向量维度: {}", v.len());        // 通常 384 或 768
+    println!("前 5 维: {:?}", &v[..5]);
+    // 有了向量就能算余弦相似度：意思越近，得分越高
+    Ok(())
+}
+```
+
+> 📌 **要点**：嵌入（Embedding）把"语义"压进一串数字。两个句子语义越近，向量在空间里越靠近——这就是"语义搜索 / RAG"的数学基础。
+
+### 训练侧一览：用 burn 定义模型
+
+研究侧多用 Python 训练，但 Rust 也有通用深度学习框架 `burn`（PyTorch 风格）。下面示意如何定义一个最简单的两层 MLP 并前向：
+
+```toml
+[dependencies]
+burn = { version = "0.13", features = ["std"] }
+```
+
+```rust
+use burn::nn::{Linear, LinearConfig};
+use burn::module::Module;
+use burn::tensor::{Backend, Tensor};
+
+#[derive(Module, Debug)]
+pub struct Mlp<B: Backend> {
+    linear: Linear<B>, // 一个线性层：y = x·W + b
+}
+
+impl<B: Backend> Mlp<B> {
+    /// 一次前向：线性变换后接 ReLU 激活
+    pub fn forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2> {
+        self.linear.forward(x).relu()
+    }
+}
+```
+
+> 💡 **说明**：上面是示意（略去了 `new()` 构造与训练循环）。`burn` 的最大卖点是能一份代码编译到 CPU/GPU/WebGPU 多种后端，且训练可完全用 Rust 写。多数团队生产里用**现成模型 + Rust 做接入与推理**，而非从零训练——所以比起 `burn`，先把 `candle` / `async-openai` / `fastembed` 用熟更划算。
+
+---
+
 ## 17.4 课后练习
 
 ### 基础题
