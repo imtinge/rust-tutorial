@@ -10,8 +10,8 @@ default-theme = "light"
 preferred-dark-theme = "ayu"
 additional-css = ["theme/style.css"]
 additional-js = ["progress.js"]
-git-repository-url = ""
-edit-url-template = ""
+git-repository-url = "https://github.com/imtinge/rust-tutorial"
+edit-url-template = "https://github.com/imtinge/rust-tutorial/edit/main/{path}"
 
 [output.html.playground]
 editable = false
