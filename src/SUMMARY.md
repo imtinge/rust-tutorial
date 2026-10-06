@@ -33,7 +33,6 @@
 
 - [第16章 WebAssembly：Rust 进浏览器](ch16-webassembly.md)
 - [第17章 Cargo 进阶：从学习到生产](ch17-cargo-advanced.md)
-- [第18章 Rust 与 AI 生态：搭上 AI 快车](ch18-ai-ecosystem.md)
 
 # 第六阶段 · 实战项目
 
@@ -42,6 +41,7 @@
 - [实战3：异步 Web 服务器](project03-web-server.md)
 - [实战4：简易 Redis 服务器](project04-redis.md)
 - [实战5：Axum Web 后端 API](project05-axum-api.md)
+- [实战6：egui 桌面 GUI 应用](project06-egui.md)
 
 # 附录
 

@@ -193,6 +193,30 @@ fn main() {
 
 > **比喻**：Trait 约束就像招工要求——"会开车 + 会英语"才录用。`T: Debug + Clone` 就是要求 `T` 既能调试打印又能克隆。
 
+> 📖 **术语解释 · `#[derive(...)]`：让编译器自动实现 Trait**：上面 `T: Debug + Clone` 要求 `T` 实现这两个 trait，那怎么让自定义类型实现它们？最常用 `derive`——在类型上方写 `#[derive(Debug, Clone, PartialEq, ...)]`，编译器自动生成对应实现，不用手写。
+
+| derive | 作用 | 典型场景 |
+|--------|------|----------|
+| `Debug` | 支持 `{:?}` 打印 | 调试、`println!` 看值 |
+| `Clone` | 支持 `.clone()` 深拷贝 | 需要复制所有权 |
+| `Copy` | 赋值时按位拷贝（隐式 Clone） | 仅含 Copy 字段的小类型 |
+| `PartialEq` / `Eq` | 支持 `==` / `!=` 比较 | 断言、查找、去重 |
+| `Default` | 支持 `::default()` 给初值 | 配置结构体、缺省值 |
+| `Hash` | 支持作为 `HashMap` / `HashSet` 的 key | 用自定义类型做键 |
+
+```rust
+// 📎 片段：derive 自动实现多个 trait（需放进 fn main）
+#[derive(Debug, Clone, PartialEq)]
+struct Point { x: i32, y: i32 }
+
+fn main() {
+    let a = Point { x: 1, y: 2 };
+    let b = a.clone();             // Clone 自动实现
+    println!("{:?}", b);           // Debug 自动实现
+    println!("相等? {}", a == b);   // PartialEq 自动实现
+}
+```
+
 ---
 
 ## 7.4 Trait 对象：动态分发

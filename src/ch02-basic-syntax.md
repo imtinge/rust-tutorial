@@ -46,6 +46,26 @@ fn main() {
 
 > **比喻**：遮蔽就像你把旧的奶茶杯扔了，用同一个杯子位置放了杯新的——而且新杯子里装的东西可以完全不同。`mut` 只能改值不能改类型，遮蔽可以改类型。
 
+### let-else：匹配失败就提前退出
+
+有些场景你要"先匹配一个模式，匹配上了才继续，匹配不上就直接返回"。用 `match` 写会多一层缩进；`let-else` 把它压成一行——**模式匹配成功，绑定变量进入外层作用域；失败则执行 `else` 分支**（通常直接 `return` / `break` / `continue`）。edition 2021+ 支持，2024 默认开启。
+
+```rust
+// ✅ 完整可运行
+fn main() {
+    let input: Option<i32> = Some(7);
+    // 匹配成功 → n 进入后续作用域；失败（None）→ 走 else 直接返回
+    let Some(n) = input else { return; };
+    println!("拿到数字：{}", n);   // 拿到数字：7
+}
+```
+
+> 📌 **要点**：`let-else` 的 `else` 分支**必须发散**（diverging）——即 `return`、`break`、`continue` 或 `panic!`，因为一旦走 else，下面的代码就不该再看到那个没绑定出来的变量。它专门用来"前置守卫"（guard），把错误情况挡在前面，主逻辑才能平铺直叙。
+
+> 🐍 **Python/JS 类比**：`let Some(n) = x else { return; }` 等价于 Python 的 `if x is None: return` 后再 `n = x`。但 Rust 把"解包 + 守卫"合成了原子操作——你没法忘记判断，编译器强制 `else` 分支存在。
+
+> 📖 **术语前瞻 · `Option`**：上面 `Some(7)` / `None` 来自 `Option` 枚举——Rust 用它替代其他语言的 `null`，"可能有值 / 可能没有"直接写进类型里。第 5 章会正式讲，这里你只需知道 `Some(7)` 表示"有值 7"、`None` 表示"没有值"即可。
+
 ### 常量 const
 
 ```rust
@@ -82,6 +102,32 @@ fn main() {
     println!("{} {} {} {}", integer, float, boolean, character);
 }
 ```
+
+> 📖 **术语解释 · `usize`**：Rust 专门用来表示"长度 / 下标"的无符号整数类型——`Vec::len()` 的返回值、`for i in 0..v.len()` 里的 `i` 都是 `usize`。它的大小取决于平台（64 位系统上是 64 位，能表示到天文数字），所以你**不能**直接拿它和 `i32` 相加，要先转换。
+
+> 📌 **要点（类型转换 `as`）**：Rust 不做隐式数值转换——`i32` 不会自动变成 `u32`。需要时用 `as`：`let n = len as i32;`。`as` 在整数间是"按位重新解释"语义（不是饱和、不是四舍五入），大类型转小类型可能丢高位；浮点转整数会直接**截断**小数部分。
+
+```rust
+// ✅ 完整可运行
+fn main() {
+    let v = vec![10, 20, 30];
+    let len: usize = v.len();      // 长度用 usize
+    let idx: i32 = 0;
+    // let bad = len + idx;        // ❌ 类型不同，编译错误
+    let sum = len as i32 + idx;    // ✅ 用 as 显式转换
+    println!("长度 {}, 头元素 {}", sum, v[0]);
+
+    let big: i32 = 300;
+    let small: u8 = big as u8;     // ⚠️ 300 超过 u8 上限 255，按位截断为 44
+    println!("300 as u8 = {}", small);
+
+    let pi = 3.9_f64;
+    let trunc = pi as i32;         // 浮点转整数：截断小数 → 3
+    println!("3.9 as i32 = {}", trunc);
+}
+```
+
+> ⚠️ **新手坑（溢出）**：Debug 模式下整数溢出直接 panic，Release 模式静默回绕（见第 13 章陷阱五）。涉及"下标 / 长度"时优先用 `usize` 当索引，别用 `i32`——既贴合语义，又避免 `usize`/`i32` 混用报错。
 
 ### 元组与数组
 
@@ -369,6 +415,7 @@ fn main() {
 - [ ] 我会定义带参数和返回值的函数
 - [ ] 我理解"表达式不加分号就是返回值"
 - [ ] 我会读 E0308 错误码并知道怎么修
+- [ ] 我理解 `let-else` 的"匹配失败就退出"守卫用法
 - [ ] 我会用 `if`、`loop`、`while`、`for` 控制流
 - [ ] 我知道 `1..5` 和 `1..=5` 的区别
 - [ ] 我完成了猜数字游戏 mini project

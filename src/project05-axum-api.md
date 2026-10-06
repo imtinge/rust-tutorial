@@ -439,4 +439,4 @@ curl "http://127.0.0.1:3000/api/tasks/page?page=2&per_page=5"
 
 ---
 
-> 🦀 **恭喜你完成了全部 5 个实战项目！** 从 CLI 工具到文件处理到 Web 服务器到 Redis 到 Web API，你已经在 Rust 的主要应用方向上都有了实战经验。
+> 🦀 **恭喜你完成了前 5 个实战项目！** 从 CLI 工具到文件处理到 Web 服务器到 Redis 到 Web API，你已经在 Rust 的主要应用方向上都有了实战经验。还有最后一个实战——实战6（egui 桌面 GUI）在等你！

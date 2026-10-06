@@ -124,7 +124,7 @@
 | 条件编译 | conditional compilation | `#[cfg(feature = "x")]` |
 | 语义化版本 | semantic versioning | `1.2.3` = 主版本.次版本.修订号 |
 
-## 十一、Unsafe 与应用方向（第13-18章）
+## 十一、Unsafe 与应用方向（第13-17章）
 
 | 中文 | 英文 | 一句话解释 |
 |------|------|-----------|

@@ -374,4 +374,4 @@ pub fn check_password(pwd: &str) -> String {
 
 ---
 
-> 🦀 **下一章预告**：第 17 章我们学 Cargo 进阶——工作空间、features 条件编译、发布到 crates.io，让你的 Rust 项目从"能跑"升级到"能上线"。之后第 18 章看看最热门的 AI 生态，再进入 5 个实战项目！
+> 🦀 **下一章预告**：第 17 章我们学 Cargo 进阶——工作空间、features 条件编译、发布到 crates.io，让你的 Rust 项目从"能跑"升级到"能上线"。再进入 6 个实战项目！

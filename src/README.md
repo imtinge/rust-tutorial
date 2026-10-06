@@ -18,7 +18,7 @@
 
 ## 内容覆盖面
 
-本书从 Hello World 一路讲到 Unsafe Rust、WebAssembly、Cargo 生产实践与 AI 生态，路径清晰，覆盖面广：
+本书从 Hello World 一路讲到 Unsafe Rust、WebAssembly 与 Cargo 生产实践，路径清晰，覆盖面广：
 
 | 阶段 | 章节 | 内容 |
 |------|------|------|
@@ -26,8 +26,8 @@
 | 核心概念 | 第 3-6 章 | 所有权、借用、结构体、枚举、集合、错误处理 |
 | 进阶特性 | 第 7-12 章 | 泛型、Trait、Newtype、生命周期、闭包、迭代器、模块、智能指针、并发、宏、async/await 异步、测试 |
 | 痛点攻坚 | 第 13-15 章 | 编译错误专章、内存布局可视化、Unsafe Rust 与 FFI |
-| 应用方向 | 第 16-18 章 | WebAssembly：Rust 进浏览器；Cargo 进阶：工作空间与发布；AI 生态：搭上大模型快车 |
-| 实战项目 | 5 个项目 | 命令行 Todo、文件爬虫、异步 Web 服务器、简易 Redis、Axum API |
+| 应用方向 | 第 16-17 章 | WebAssembly：Rust 进浏览器；Cargo 进阶：工作空间与发布 |
+| 实战项目 | 6 个项目 | 命令行 Todo、文件爬虫、异步 Web 服务器、简易 Redis、Axum API、egui 桌面 GUI |
 
 ### 渐进式学习路径
 
@@ -35,8 +35,8 @@
 Hello World → 基础类型 → 所有权/借用 → 结构体/枚举
 → 泛型/Trait → 生命周期/闭包 → 迭代器/模块
 → 智能指针/并发 → async/await → 测试 → 编译错误攻坚
-→ 内存布局 → Unsafe/FFI → WebAssembly → Cargo 进阶 → AI 生态
-→ 实战项目（CLI → 文件 → Web → Redis → API）
+→ 内存布局 → Unsafe/FFI → WebAssembly → Cargo 进阶
+→ 实战项目（CLI → 文件 → Web → Redis → API → GUI）
 ```
 
 ### 实战项目驱动
@@ -48,6 +48,7 @@ Hello World → 基础类型 → 所有权/借用 → 结构体/枚举
 | 异步 Web 服务器 | 中等 | tokio、async/await、HTTP 路由 | 本书第11章 async |
 | 简易 Redis 服务器 | 进阶 | RESP 协议、TCP 异步、Arc/Mutex 并发 | rust-course 进阶实战 |
 | Axum Web API | 进阶 | Axum 框架、JSON API、中间件 | Rust AIO Book 6 |
+| egui 桌面 GUI | 入门 | eframe、立即模式 GUI、结构体状态管理 | egui 官方示例（docs.rs/eframe） |
 
 ## 这本书怎么用？
 
@@ -75,7 +76,7 @@ Hello World → 基础类型 → 所有权/借用 → 结构体/枚举
 - **比喻先行**：所有权 = 奶茶杯的使用权，借用检查器 = 宿舍查寝阿姨，生命周期 = 奶茶的保质期，Rust vs C/C++ = 带空仓警告的神奇钉枪，堆内存 = 酒店地下行李仓库，GC 开销 = 穿全套盔甲走路……硬核概念全用生活场景解释
 - **代码先行**：每个知识点先上代码，再讲原理——先看效果再理解，符合人类学习规律
 - **报错是朋友**：编译器报错不是你的敌人，是帮你排雷的战友。我们会展示真实的编译器输出（如 `error[E0382]`），逐行拆解每一行含义
-- **每章有 Mini Project**：学一个概念，立刻用一个项目巩固（第1-18章全部配有）
+- **每章有 Mini Project**：学一个概念，立刻用一个项目巩固（第1-17章全部配有）
 - **每章有记忆卡片**：章末浓缩成一句话 + 口诀 + 三个判断题，考前复习就靠它
 
 ### 辅助图标体系
@@ -142,9 +143,10 @@ Hello World → 基础类型 → 所有权/借用 → 结构体/枚举
 | **Web 后端** | Rust AIO Book 6（Axum）或 rust-course 进阶实战 | 实战3（Web 服务器）、实战5（Axum API） |
 | **异步编程** | TRPL（2024 edition）async 章节 + rust-course async 章节 | 第11章（async/await）、实战3（async 服务器）、实战4（Redis） |
 | **系统编程** | TRPL Unsafe 章节 + cheats.rs Unsafe 章节 | 第15章（Unsafe/FFI） |
-| **AI 应用开发** | candle/burn 官方文档 + async-openai | 第18章（AI 生态） |
 | **数据库/存储** | rust-course 进阶实战（Redis） | 实战4（Redis） |
+| **AI 应用开发** | candle/burn 官方文档 + async-openai | （本书未单列章节，见官方文档） |
 | **项目工程化/发布** | TRPL Cargo 章节 | 第17章（Cargo 进阶） |
+| **桌面 GUI 开发** | egui 官方文档（docs.rs/eframe） | 实战6（egui 桌面 GUI） |
 
 ---
 

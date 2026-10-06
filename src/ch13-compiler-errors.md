@@ -1,9 +1,10 @@
 # 第13章 编译错误攻坚：与编译器做朋友
 
 > **学习目标**
-> - 掌握 Rust 最常见的 6 大编译错误及其修复方案
+> - 掌握 Rust 最常见的 8 大编译错误及其修复方案
 > - 学会逐行阅读编译器输出，把报错当教学素材
 > - 了解 5 个经典新手陷阱及其根因
+> - 掌握 `dbg!` 宏与 `RUST_BACKTRACE` 两个调试神器
 > - 建立"与编译器合作而非对抗"的心态
 >
 > **预计学习时长**：2-3 小时
@@ -20,7 +21,7 @@
 
 ---
 
-## 13.2 六大高频编译错误
+## 13.2 八大高频编译错误
 
 ### 错误一：E0382 — 使用了已移动的值
 
@@ -250,6 +251,93 @@ let r = &mut s;                   // OK
 
 ---
 
+### 错误七：E0499 — 同一时刻多次可变借用
+
+```rust
+fn main() {
+    let mut v = vec![1, 2, 3];
+    let a = &mut v;
+    let b = &mut v;  // 报错！
+    println!("{} {}", a.len(), b.len());
+}
+```
+
+```
+error[E0499]: cannot borrow `v` as mutable more than once at a time
+ --> src/main.rs:4:13
+  |
+3 |     let a = &mut v;
+  |             ------ first mutable borrow occurs here
+4 |     let b = &mut v;
+  |             ^^^^^^ second mutable borrow occurs here
+5 |     println!("{} {}", a.len(), b.len());
+  |                       - first borrow later used here
+```
+
+**逐行拆解**：
+- `first mutable borrow occurs here` — 第 3 行 `a` 已经独占借用了 `v`
+- `second mutable borrow occurs here` — 第 4 行又想再借一次可变引用，冲突
+- `first borrow later used here` — 第 5 行还在用 `a`，所以 `a` 的借用没结束
+
+**修复方案**：可变借用是"独占"的——同一时刻只能有一个 `&mut`。让两个借用不要同时存活（缩小作用域，或先后使用）：
+```rust
+let mut v = vec![1, 2, 3];
+{
+    let a = &mut v;
+    a.push(4);
+}  // a 在这里用完，借用结束
+let b = &mut v;   // 现在可以再借
+b.push(5);
+println!("{:?}", b);  // [1, 2, 3, 4, 5]
+```
+
+> 📌 **要点**：`&mut` 像洗手间的钥匙——同一时刻只能一个人用。你要"先后用"，就得等上一个人出来（借用结束）再把钥匙交给下一个。
+
+---
+
+### 错误八：E0597 — 借用活得不够久
+
+```rust
+fn main() {
+    let r;
+    {
+        let x = String::from("hi");
+        r = &x;  // 报错！
+    }
+    println!("{}", r);
+}
+```
+
+```
+error[E0597]: `x` does not live long enough
+ --> src/main.rs:5:13
+  |
+4 |         let x = String::from("hi");
+  |             - binding `x` declared here
+5 |         r = &x;
+  |             ^^ borrowed value does not live long enough
+6 |     }
+  |     - `x` dropped here while still borrowed
+7 |     println!("{}", r);
+  |                    - borrow later used here
+```
+
+**逐行拆解**：
+- `binding x declared here` — 第 4 行 `x` 在内部块里出生
+- `x dropped here while still borrowed` — 第 6 行内部块结束，`x` 被释放（drop）
+- `borrow later used here` — 第 7 行还在用 `r`（指向已释放的 `x`）
+
+**修复方案**：引用的寿命不能超过被借的数据。让 `x` 活在 `r` 外面：
+```rust
+let x = String::from("hi");  // x 在外面，活得比 r 久
+let r = &x;
+println!("{}", r);           // OK
+```
+
+> 📌 **要点**：E0499 和 E0597 是"借用检查"的两张经典面孔——前者是"同一时间借太多次（可变）"，后者是"借出来的东西活得太短"。记住一句话：**引用不能比它指向的数据活得更久，且 `&mut` 同一时刻只能有一个。**
+
+---
+
 ## 13.3 五大经典新手陷阱
 
 ### 陷阱一：for 循环中使用 Vec 的 len
@@ -353,7 +441,37 @@ let z = x.saturating_add(1);                 // 饱和加法，溢出停在 255
 
 ---
 
-## 13.4 FAQ：编译器报错常见问题
+## 13.4 调试神器：`dbg!` 宏与 `RUST_BACKTRACE`
+
+读得懂报错是第一步，但有些 bug 编译器报不出来——逻辑错了但能编译过。这时候你需要自己"插桩看值"。两个最常用、零依赖的调试神器：
+
+> 🔧 **调试神器 · `dbg!` 宏**：当你想知道"某个变量此刻到底是什么值"时，用 `dbg!` 最快。它会在**标准错误**打印变量的值、所在文件和行号，并原样返回这个值（所以能直接塞进表达式中间）。edition 2024 实测：
+>
+> ```rust
+> // ✅ 完整可运行
+> fn main() {
+>     let x = 5;
+>     let y = dbg!(x * 2);              // 打印：[src/main.rs:3:13] x * 2 = 10
+>     let _ = dbg!(y, "调试中");          // 可一次打印多个值，逗号分隔
+>     println!("y = {}", y);
+> }
+> ```
+>
+> 对比 `println!`：`dbg!` 自动带上"在哪个文件第几行"的位置信息，调试时省去手写给变量贴标签。正式提交代码前记得删掉（或用 `#[cfg(debug_assertions)]` 包起来，只在 debug 构建里保留）。
+
+> 🔧 **调试神器 · 回溯栈 `RUST_BACKTRACE=1`**：当程序 **panic**（崩溃）时，默认只打印崩在哪一行。加上这个环境变量，能看到完整的"调用栈"——从 `main` 一路追到到底是哪一层函数把程序搞崩的：
+>
+> ```bash
+> RUST_BACKTRACE=1 cargo run
+> ```
+>
+> 输出里 `stack backtrace:` 下方的每一行就是一个函数调用层级（越上面越靠近崩点）。定位"崩在哪个函数、谁调的它"时必开它——尤其配合第 15 章的 `unsafe` 或第三方库 panic，没有回溯栈根本无从下手。
+>
+> 💡 **小技巧**：想每次都生效，可在 shell 配置里 `export RUST_BACKTRACE=1`，或只在本次运行前加前缀（如上）。Windows PowerShell 写 `$env:RUST_BACKTRACE=1; cargo run`。
+
+---
+
+## 13.5 FAQ：编译器报错常见问题
 
 **Q: 编译器说了一大堆 `error`，我该从哪个开始看？**
 
@@ -377,7 +495,7 @@ let z = x.saturating_add(1);                 // 饱和加法，溢出停在 255
 
 ---
 
-## 13.5 课后练习
+## 13.6 课后练习
 
 ### 基础题
 
@@ -457,7 +575,7 @@ fn main() {
 
 ---
 
-## 13.6 Mini Project：Debug 大挑战
+## 13.7 Mini Project：Debug 大挑战
 
 下面这段代码有 **2 个错误**。你的任务：编译它、读懂每个报错、逐一修复——全程不许看提示。
 
@@ -533,7 +651,7 @@ fn main() {
 >
 > **一句话**：编译器输出 = 错误码 + 位置 + help——从第一个错修起，改一个编译一次。
 >
-> **口诀**：E0382 搬走了、E0384 没加 mut、E0502 借用撞车。
+> **口诀**：E0382 搬走了、E0384 没加 mut、E0502 借用撞车、E0499 借太多、E0597 活得短。
 >
 > **三个判断题**（心里过一遍）：
 > 1. 一次报 5 个错，应该全改完再重新编译 → ✗（从第一个改起，改一个验一个）
@@ -548,11 +666,15 @@ fn main() {
 - [ ] 我理解 E0382（moved value）和 E0384（immutable）的区别
 - [ ] 我知道 E0502（可变/不可变引用冲突）怎么修
 - [ ] 我知道 E0308（类型不匹配）通常是多加了分号
+- [ ] 我知道 E0499（同一时刻多次可变借用）怎么修
+- [ ] 我知道 E0597（借用活得不够久）怎么修
 - [ ] 我会读编译器的 `help:` 提示
 - [ ] 我知道 for 循环中 `v.len()` 只求值一次
 - [ ] 我知道 String 不能直接用索引访问字符
 - [ ] 我知道迭代器是惰性的，需要消费才会执行
 - [ ] 我知道 Debug 和 Release 在溢出时行为不同
+- [ ] 我会用 `dbg!` 宏快速打印变量值和所在位置
+- [ ] 我会用 `RUST_BACKTRACE=1` 查看 panic 时的完整调用栈
 - [ ] 我完成了 Debug 大挑战 mini project
 
 ---

@@ -226,6 +226,26 @@ fn main() {
 }
 ```
 
+> 📖 **术语解释 · 方法调用的自动引用（auto-ref）**：`r.area()` 里 `r` 是值（不是引用），但 `area` 的签名是 `fn area(&self)`——编译器会**自动帮你取引用**，等价于 `(&r).area()`，这叫 auto-ref。所以你永远不用手写 `(&r).method()`。字段访问（如 `r.width`）同理也可能需要 auto-ref。这是 Rust 在"方法 / 字段调用"上做的唯一一处隐式引用，记住它能省掉很多 `&`。
+
+```rust
+// 📎 片段：auto-ref 对比（需放进 fn main）
+let r = Rectangle { width: 3.0, height: 4.0 };
+let a1 = r.area();        // 你写的：r 是值，方法要 &self
+let a2 = (&r).area();     // 上面这行编译器自动展开成这样——自动加上 &
+```
+
+> 📖 **术语解释 · 部分移动（partial move）**：Rust 允许你只把结构体的**某一个字段** move 走，而不动其他字段。下例把 `x` 移走后，`p` 变成"部分移动"状态：整体 `p` 不能再被使用（不能打印、不能整体 move），但**没被移走的字段**（`p.y`）仍能用。常用于"拆包"结构体、取走其中一部分数据。
+
+```rust
+// 📎 片段：partial move（需放进 fn main）
+struct Pair { x: String, y: i32 }
+let p = Pair { x: String::from("hi"), y: 1 };
+let s = p.x;                 // 把 x 字段 move 走（partial move）
+// println!("{}", p);        // ❌ p 已部分移动，整体不能再使用
+println!("{}", p.y);         // ✅ 没被移走的字段还能用
+```
+
 <details>
 <summary>👉 点开：查看「结构体 + impl 方法 + main」完整可运行版（✅）</summary>
 
@@ -308,6 +328,24 @@ fn main() {
 > 💡 **技巧**：方法用 `.` 调用（`r.area()`），关联函数用 `::` 调用（`Rectangle::square()`）。就像 Python 里 `list.append()` 是方法，`list()` 是"关联函数"。
 
 ---
+
+> 💡 **技巧（let-else 在方法里做前置守卫）**：第 2 章讲过 `let-else`——"匹配失败就提前退出"。在方法里它特别顺手：先用它把需要的字段/值从 `Option` 里解出来，解不出就直接 `return`，主逻辑就能平铺直叙，不用层层 `match` 嵌套。
+>
+> ```rust
+> // 📎 片段：let-else 做守卫（需放进 fn 上下文）
+> struct User { name: Option<String> }
+> impl User {
+>     fn greet(&self) -> String {
+>         // 有名字才打招呼；没有名字（None）直接返回默认问候
+>         let Some(name) = &self.name else {
+>             return "你好，陌生人".to_string();
+>         };
+>         format!("你好，{}", name)
+>     }
+> }
+> ```
+>
+> 这里 `else` 分支里的 `return` 让 `greet` 提前结束，`name` 只在匹配成功时才存在于后续代码——编译器保证你不会在 `None` 情况下误用 `name`。
 
 ## 4.5 派生 Trait：一行代码搞定常用功能
 

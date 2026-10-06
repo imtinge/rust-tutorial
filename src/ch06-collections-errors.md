@@ -222,6 +222,45 @@ fn main() {
 
 > ⚠️ **新手坑**：`unwrap()` 在生产代码中尽量少用——出错就 panic。用 `?` 或 `match` 优雅处理错误。写快速原型时用 `unwrap()` 没问题。
 
+### 组合子：链式处理 `Option` / `Result`
+
+如果只想"有值就转换一下、没值就算了"，反复 `match` 太啰嗦。标准库提供了一组**组合子（combinator）方法**，让 `Option` / `Result` 像水管一样串起来：
+
+| 组合子 | 作用 | 类比 |
+|--------|------|------|
+| `map` | 有值/成功时转换内部值，`None`/`Err` 原样透传 | Python 的 `x.map(f)`（Optional） |
+| `and_then` | 像 `map` 但闭包返回 `Option`/`Result`，用来**链式**下一步 | JS 的 `.then()`、Promise 链 |
+| `ok_or` | 把 `Option` 变成 `Result`——`None` 时填入你给的错误 | `x or default` 的"错误版" |
+
+```rust
+// ✅ 完整可运行
+fn main() {
+    // map：有值就转换，None 不动
+    let len = Some("rust".to_string()).map(|s| s.len()); // Some(4)
+    println!("{:?}", len);
+
+    // ok_or：Option → Result，None 时给一个错误
+    let parsed: Result<i32, &str> = "42".parse::<i32>().ok().ok_or("不是数字");
+    println!("{:?}", parsed); // Ok(42)
+
+    // and_then：链式，闭包返回 Option，可接着算
+    let doubled = Some(3).and_then(|x| Some(x * 2)); // Some(6)
+    println!("{:?}", doubled);
+
+    // 组合起来的威力：解析失败或越界都变成 Err，而不是 panic
+    let safe: Result<i32, &str> = Some("10".to_string())
+        .ok_or("空输入")                 // Option → Result
+        .and_then(|s| s.parse::<i32>().map_err(|_| "解析失败")); // 解析错误也归一成 &str
+    println!("{:?}", safe); // Ok(10)
+}
+```
+
+> 📖 **术语解释 · 组合子（Combinator）**：一个"接收值、返回同类型（或可转换类型）新值"的小函数，专门用来把操作串成流水线。Rust 的 `Option`/`Result` 之所以好用，一大半功劳在 `map`/`and_then`/`ok_or`/`unwrap_or` 这一族组合子上——它们让你**不写 `match` 也能安全处理"可能没有值 / 可能出错"**。
+
+> 🐍 **Python/JS 类比**：`map` 像 Python `Optional.map()` 或 JS 数组的 `.map()`；`and_then` 像 JS Promise 的 `.then()`（上一步的结果喂给下一步）；`ok_or` 则像"取不到就抛出一个指定错误"。区别是 Rust 这一切在**编译期**就强制你处理 `None`/`Err` 分支，不会像 Python 那样忘了判 `None` 就 `AttributeError`。
+
+> 💡 **技巧**：`map` / `and_then` 适合"纯转换、不报错"的流水线；一旦某步**可能失败且你想把错误传出去**，就该用 `?`（见 5.6 节）或在闭包里用 `ok_or` / `map_err` 把错误归一成同一类型。
+
 ---
 
 ## 6.6 自定义错误类型
@@ -415,6 +454,7 @@ fn main() {
 - [ ] 我知道 `panic!` 用于不可恢复的错误，`Result` 用于可恢复的错误
 - [ ] 我会用 `?` 运算符传播错误
 - [ ] 我理解 `unwrap()` 出错会 panic，尽量用 `match` 代替
+- [ ] 我会用 `map` / `and_then` / `ok_or` 组合子处理 `Option` 和 `Result`
 - [ ] 我会定义自定义错误类型
 - [ ] 我完成了词频统计器 mini project
 
